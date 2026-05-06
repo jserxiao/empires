@@ -24,6 +24,7 @@ const { COLS, ROWS, TILE_SIZE } = MAP_CONFIG
 // ===== 黑雾数据 =====
 let fogExplored = null  // Uint8Array - 0=未探索, 1=已探索
 let fogVisible = null   // Uint8Array - 0=不可见, 1=当前可见
+let fogVersion = 0      // 版本号，供渲染器脏检查
 
 /**
  * 初始化黑雾数据（地图生成后调用）
@@ -40,13 +41,14 @@ export function initFog() {
 export function resetFog() {
   fogExplored = null
   fogVisible = null
+  fogVersion = 0
 }
 
 /**
  * 获取黑雾状态数据（供渲染器使用）
  */
 export function getFogData() {
-  return { fogExplored, fogVisible }
+  return { fogExplored, fogVisible, version: fogVersion }
 }
 
 /**
@@ -84,6 +86,7 @@ export function updateFog() {
 
   // 清空当前可见状态
   fogVisible.fill(0)
+  fogVersion++
 
   // 遍历所有玩家实体，揭示视野
   for (const entity of state.entities.values()) {

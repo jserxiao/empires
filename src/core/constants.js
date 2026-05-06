@@ -86,6 +86,8 @@ export const UNIT_TYPE = {
   SWORDSMAN: 'swordsman',
   ARCHER: 'archer',
   KNIGHT: 'knight',
+  HALBERDIER: 'halberdier',
+  IRON_GUARD: 'iron_guard',
 }
 
 // ========== 单位显示尺寸 (相对 TILE_SIZE 的比例) ==========
@@ -96,20 +98,25 @@ export const UNIT_DISPLAY_SIZE = {
   swordsman:     { w: 0.8,  h: 0.8 },
   archer:        { w: 0.8,  h: 0.8 },
   knight:        { w: 0.8,  h: 0.8 },
+  halberdier:    { w: 0.25, h: 0.4 },
+  iron_guard:    { w: 0.25, h: 0.4 },
 }
 
 // ========== 建筑类型 ==========
 export const BUILDING_TYPE = {
   TOWN_CENTER: 'town_center',
   HOUSE: 'house',
+  CIVILIAN_HOUSE: 'civilian_house',
   FARM: 'farm',
   LUMBER_CAMP: 'lumber_camp',
   MINING_CAMP: 'mining_camp',
   BARRACKS: 'barracks',
+  MILITARY_CAMP: 'military_camp',
   ARCHERY_RANGE: 'archery_range',
   STABLE: 'stable',
   TOWER: 'tower',
   WALL: 'wall',
+  CITY_WALL: 'city_wall',
 }
 
 // ========== 团队 ==========
@@ -117,6 +124,13 @@ export const TEAM = {
   PLAYER: 0,
   ENEMY: 1,
   NEUTRAL: 2,
+}
+
+/** 队伍 → 玩家配色键名映射 */
+export const TEAM_COLOR_MAP = {
+  [TEAM.PLAYER]: 'red',
+  [TEAM.ENEMY]: 'blue',
+  [TEAM.NEUTRAL]: null,
 }
 
 // ========== 资源定义 ==========
@@ -226,6 +240,34 @@ export const UNIT_DEFS = {
     gatherer: false,
     population: 2,
   },
+  [UNIT_TYPE.HALBERDIER]: {
+    name: '执戟卫士',
+    image: '/PNG/Default size/Unit/halberdier.png',
+    maxHp: 70,
+    attack: 10,
+    armor: 3,
+    range: 1,
+    moveSpeed: 0.9,
+    attackSpeed: 1.0,
+    cost: { food: 35, wood: 0, gold: 25, stone: 0 },
+    trainTime: 22,
+    gatherer: false,
+    population: 1,
+  },
+  [UNIT_TYPE.IRON_GUARD]: {
+    name: '铁甲卫士',
+    image: '/PNG/Default size/Unit/iron_guard.png',
+    maxHp: 120,
+    attack: 8,
+    armor: 6,
+    range: 1,
+    moveSpeed: 0.7,
+    attackSpeed: 0.9,
+    cost: { food: 40, wood: 0, gold: 40, stone: 10 },
+    trainTime: 28,
+    gatherer: false,
+    population: 1,
+  },
 }
 
 // ========== 建筑定义 ==========
@@ -318,6 +360,32 @@ export const BUILDING_DEFS = {
     range: 8,
     attackSpeed: 1.0,
   },
+  [BUILDING_TYPE.CIVILIAN_HOUSE]: {
+    name: '民房',
+    image: '/PNG/Default size/Structure/civilian_house.png',
+    size: { w: 1, h: 1 },
+    maxHp: 120,
+    cost: { food: 0, wood: 25, gold: 0, stone: 0 },
+    buildTime: 12,
+    populationProvide: 5,
+  },
+  [BUILDING_TYPE.CITY_WALL]: {
+    name: '城墙',
+    image: '/PNG/Default size/Structure/city_wall.png',
+    size: { w: 1, h: 1 },
+    maxHp: 300,
+    cost: { food: 0, wood: 0, gold: 0, stone: 10 },
+    buildTime: 8,
+  },
+  [BUILDING_TYPE.MILITARY_CAMP]: {
+    name: '军营',
+    image: '/PNG/Default size/Structure/military_camp.png',
+    size: { w: 2, h: 1 },
+    maxHp: 250,
+    cost: { food: 0, wood: 150, gold: 50, stone: 0 },
+    buildTime: 35,
+    trainableUnits: [UNIT_TYPE.HALBERDIER, UNIT_TYPE.IRON_GUARD],
+  },
 }
 
 // ========== 瓦片图片映射 ==========
@@ -349,7 +417,7 @@ export const ROAD_COLOR = '#b0976a'
 
 // ========== 黑雾系统配置 ==========
 export const FOG_CONFIG = {
-  enabled: true,              // 是否启用黑雾（可通过 setFogEnabled 切换）
+  enabled: false,              // 是否启用黑雾（可通过 setFogEnabled 切换）
   unitVisionRange: 6,         // 单位视野（瓦片数）
   buildingVisionRange: 8,     // 建筑视野（瓦片数）
   fogAlpha: 0.92,             // 未探索区域黑雾透明度

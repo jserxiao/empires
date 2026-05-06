@@ -7,7 +7,7 @@
  * - 集群移动：多单位目标分散
  */
 
-import { getState, getMapData } from '../core/GameState.js'
+import { getState, getMapData, createWalkableCheck, spatialUpdateUnit } from '../core/GameState.js'
 import { findPath, pathToWorldPath, computePathLength, distributeTargets } from '../core/Pathfinding.js'
 import { MAP_CONFIG, ENTITY_STATE, TERRAIN } from '../core/constants.js'
 import { RESOURCE_DEFS } from '../core/constants.js'
@@ -23,29 +23,6 @@ const EASE_DISTANCE = TILE_SIZE * 1.5
  * @param {number} targetCol - 目标列
  * @param {number} targetRow - 目标行
  */
-/**
- * 创建通行检查函数 - 所有建筑（含建造中）和资源堆都是障碍物
- * @param {object} state - 游戏状态
- * @param {number} [excludeBuildingId] - 排除的建筑ID（如建造目标，允许走近它）
- * @param {number} [excludeResourceIdx] - 排除的资源索引（如采集目标，允许走近它）
- */
-function createWalkableCheck(state, excludeBuildingId, excludeResourceIdx) {
-  return (x, y) => {
-    // 检查建筑障碍
-    for (const b of state.buildings.values()) {
-      if (b.id === excludeBuildingId) continue
-      if (x >= b.tileX && x < b.tileX + b.size.w &&
-          y >= b.tileY && y < b.tileY + b.size.h) {
-        return false
-      }
-    }
-    // 检查资源障碍（树、浆果、矿等不可通行）
-    const idx = y * COLS + x
-    if (idx !== excludeResourceIdx && state.resource[idx]) return false
-    return true
-  }
-}
-
 export function commandMove(unitIds, targetCol, targetRow) {
   const state = getState()
   const { terrain } = getMapData()
@@ -249,6 +226,10 @@ function moveAlongPath(entity, dt) {
     return
   }
 
+  // 记录旧位置用于空间索引更新
+  const oldX = entity.x
+  const oldY = entity.y
+
   // 匀速移动
   const speed = entity.moveSpeed
 
@@ -272,6 +253,9 @@ function moveAlongPath(entity, dt) {
     entity.x = from.x + dx * entity.progress
     entity.y = from.y + dy * entity.progress
   }
+
+  // 更新空间索引
+  spatialUpdateUnit(entity, oldX, oldY)
 }
 
 function onPathComplete(entity) {

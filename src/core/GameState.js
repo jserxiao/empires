@@ -53,8 +53,8 @@ const state = {
 
   // 玩家资源
   resources: {
-    [TEAM.PLAYER]:  { food: 200, wood: 200, gold: 50, stone: 100 },
-    [TEAM.ENEMY]:   { food: 200, wood: 200, gold: 50, stone: 100 },
+[TEAM.PLAYER]:  { food: 9999, wood: 9999, gold: 9999, stone: 9999 },
+  [TEAM.ENEMY]:   { food: 9999, wood: 9999, gold: 9999, stone: 9999 },
     [TEAM.NEUTRAL]: { food: 0, wood: 0, gold: 0, stone: 0 },
   },
 
@@ -85,6 +85,135 @@ const state = {
 
 // ===== SoA 索引辅助 =====
 function tileIdx(x, y) { return y * COLS + x }
+
+// ===== 空间索引（网格分区）=====
+const SPATIAL_CELL_SIZE = 4  // 每个空间格子占 4×4 瓦片
+const SPATIAL_COLS = Math.ceil(COLS / SPATIAL_CELL_SIZE)
+const SPATIAL_ROWS = Math.ceil(ROWS / SPATIAL_CELL_SIZE)
+
+/** @type {Map<number, Set<number>>} 空间格子 → 实体ID集合 */
+let spatialGrid = new Map()
+
+/** 计算实体所在的格子 key */
+function spatialKey(col, row) {
+  const sc = Math.floor(col / SPATIAL_CELL_SIZE)
+  const sr = Math.floor(row / SPATIAL_CELL_SIZE)
+  return sr * SPATIAL_COLS + sc
+}
+
+/** 将实体添加到空间索引 */
+function spatialAdd(entity) {
+  if (entity.entityType === 'building') {
+    // 建筑可能跨多个格子
+    const startCol = entity.tileX
+    const endCol = entity.tileX + entity.size.w - 1
+    const startRow = entity.tileY
+    const endRow = entity.tileY + entity.size.h - 1
+    for (let r = startRow; r <= endRow; r += SPATIAL_CELL_SIZE) {
+      for (let c = startCol; c <= endCol; c += SPATIAL_CELL_SIZE) {
+        const key = spatialKey(c, r)
+        let cell = spatialGrid.get(key)
+        if (!cell) { cell = new Set(); spatialGrid.set(key, cell) }
+        cell.add(entity.id)
+    }
+  }
+  } else {
+    // 单位只占一个格子
+    const col = Math.floor(entity.x / TILE_SIZE)
+    const row = Math.floor(entity.y / TILE_SIZE)
+    const key = spatialKey(col, row)
+    let cell = spatialGrid.get(key)
+    if (!cell) { cell = new Set(); spatialGrid.set(key, cell) }
+    cell.add(entity.id)
+  }
+}
+
+/** 从空间索引移除实体 */
+function spatialRemove(entity) {
+  if (entity.entityType === 'building') {
+    const startCol = entity.tileX
+    const endCol = entity.tileX + entity.size.w - 1
+    const startRow = entity.tileY
+    const endRow = entity.tileY + entity.size.h - 1
+    for (let r = startRow; r <= endRow; r += SPATIAL_CELL_SIZE) {
+      for (let c = startCol; c <= endCol; c += SPATIAL_CELL_SIZE) {
+        const key = spatialKey(c, r)
+        const cell = spatialGrid.get(key)
+        if (cell) cell.delete(entity.id)
+    }
+  }
+  } else {
+    const col = Math.floor(entity.x / TILE_SIZE)
+    const row = Math.floor(entity.y / TILE_SIZE)
+    const key = spatialKey(col, row)
+    const cell = spatialGrid.get(key)
+    if (cell) cell.delete(entity.id)
+  }
+}
+
+/** 更新单位的空间索引（移动后调用） */
+export function spatialUpdateUnit(entity, oldX, oldY) {
+  const oldCol = Math.floor(oldX / TILE_SIZE)
+  const oldRow = Math.floor(oldY / TILE_SIZE)
+  const newCol = Math.floor(entity.x / TILE_SIZE)
+  const newRow = Math.floor(entity.y / TILE_SIZE)
+  if (oldCol === newCol && oldRow === newRow) return
+  const oldKey = spatialKey(oldCol, oldRow)
+  const oldCell = spatialGrid.get(oldKey)
+  if (oldCell) oldCell.delete(entity.id)
+  const newKey = spatialKey(newCol, newRow)
+  let newCell = spatialGrid.get(newKey)
+  if (!newCell) { newCell = new Set(); spatialGrid.set(newKey, newCell) }
+  newCell.add(entity.id)
+}
+
+/**
+ * 查询指定范围内的实体（使用空间索引加速）
+ * @param {number} cx - 中心世界坐标 x
+ * @param {number} cy - 中心世界坐标 y
+ * @param {number} radius - 搜索半径（世界坐标）
+ * @returns {Array} 范围内的实体数组
+ */
+export function getEntitiesInRange(cx, cy, radius) {
+  const results = []
+  const r2 = radius * radius
+  // 计算需要检查的空间格子范围
+  const minCol = Math.max(0, Math.floor((cx - radius) / TILE_SIZE))
+  const maxCol = Math.min(COLS - 1, Math.ceil((cx + radius) / TILE_SIZE))
+  const minRow = Math.max(0, Math.floor((cy - radius) / TILE_SIZE))
+  const maxRow = Math.min(ROWS - 1, Math.ceil((cy + radius) / TILE_SIZE))
+  const minSC = Math.floor(minCol / SPATIAL_CELL_SIZE)
+  const maxSC = Math.floor(maxCol / SPATIAL_CELL_SIZE)
+  const minSR = Math.floor(minRow / SPATIAL_CELL_SIZE)
+  const maxSR = Math.floor(maxRow / SPATIAL_CELL_SIZE)
+
+  const checked = new Set()
+  for (let sr = minSR; sr <= maxSR; sr++) {
+    for (let sc = minSC; sc <= maxSC; sc++) {
+      const key = sr * SPATIAL_COLS + sc
+      const cell = spatialGrid.get(key)
+      if (!cell) continue
+      for (const id of cell) {
+        if (checked.has(id)) continue
+        checked.add(id)
+        const entity = state.entities.get(id)
+        if (!entity) continue
+        const ex = entity.entityType === 'building'
+          ? (entity.tileX + entity.size.w / 2) * TILE_SIZE
+          : entity.x
+        const ey = entity.entityType === 'building'
+          ? (entity.tileY + entity.size.h / 2) * TILE_SIZE
+          : entity.y
+        const dx = ex - cx
+        const dy = ey - cy
+        if (dx * dx + dy * dy <= r2) {
+          results.push(entity)
+        }
+      }
+    }
+  }
+  return results
+}
 
 // ===== 地图初始化 =====
 export function initMap(mapData, towns) {
@@ -226,6 +355,7 @@ export function createUnit(unitType, worldX, worldY, team = TEAM.PLAYER) {
   }
 
   state.entities.set(id, entity)
+  spatialAdd(entity)
   scheduleNotify()
   return entity
 }
@@ -279,6 +409,7 @@ export function createBuilding(buildingType, tileX, tileY, team = TEAM.PLAYER) {
 
   state.entities.set(id, entity)
   state.buildings.set(id, entity)
+  spatialAdd(entity)
   scheduleNotify()
   return entity
 }
@@ -291,6 +422,7 @@ export function getEntity(id) {
 export function removeEntity(id) {
   const entity = state.entities.get(id)
   if (!entity) return
+  spatialRemove(entity)
   state.entities.delete(id)
   if (entity.entityType === 'building') {
     state.buildings.delete(id)
@@ -298,19 +430,6 @@ export function removeEntity(id) {
   // 从选中列表移除
   state.selectedIds = state.selectedIds.filter(sid => sid !== id)
   scheduleNotify()
-}
-
-export function getEntitiesInRange(cx, cy, radius) {
-  const results = []
-  const r2 = radius * radius
-  for (const entity of state.entities.values()) {
-    const dx = entity.x - cx
-    const dy = entity.y - cy
-    if (dx * dx + dy * dy <= r2) {
-      results.push(entity)
-    }
-  }
-  return results
 }
 
 export function getUnitsOfTeam(team) {
@@ -511,19 +630,35 @@ export function consumeResource(x, y, amount) {
 }
 
 export function isTileWalkable(x, y, excludeBuildingId) {
-  const terrain = getTerrain(x, y)
-  if (terrain === TERRAIN.DEEP_WATER || terrain === TERRAIN.SHALLOW_WATER) return false
-  // 检查建筑占位（所有建筑都是障碍物，包括建造中的）
-  for (const b of state.buildings.values()) {
-    if (b.id === excludeBuildingId) continue // 排除指定建筑（如建造目标）
-    if (x >= b.tileX && x < b.tileX + b.size.w && y >= b.tileY && y < b.tileY + b.size.h) {
-      return false
+  return createWalkableCheck(state, excludeBuildingId)(x, y)
+}
+
+/**
+ * 创建通行检查函数 - 供寻路系统使用
+ * 所有建筑（含建造中）和资源堆都是障碍物
+ * @param {object} state - 游戏状态
+ * @param {number} [excludeBuildingId] - 排除的建筑ID（如建造目标，允许走近它）
+ * @param {number} [excludeResourceIdx] - 排除的资源索引（如采集目标，允许走近它）
+ * @returns {function(number, number): boolean}
+ */
+export function createWalkableCheck(state, excludeBuildingId, excludeResourceIdx) {
+  return (x, y) => {
+    // 检查地形（深水/浅水不可通行）
+    const idx = tileIdx(x, y)
+    const terrain = state.terrain[idx]
+    if (terrain === TERRAIN.DEEP_WATER || terrain === TERRAIN.SHALLOW_WATER) return false
+    // 检查建筑障碍
+    for (const b of state.buildings.values()) {
+      if (b.id === excludeBuildingId) continue
+      if (x >= b.tileX && x < b.tileX + b.size.w &&
+          y >= b.tileY && y < b.tileY + b.size.h) {
+        return false
+      }
     }
+    // 检查资源障碍（排除目标资源，如采集时允许走到资源旁）
+    if (idx !== excludeResourceIdx && state.resource[idx]) return false
+    return true
   }
-  // 检查资源障碍（树、浆果、矿等不可通行）
-  const idx = tileIdx(x, y)
-  if (state.resource[idx]) return false
-  return true
 }
 
 // ===== 训练队列 =====
@@ -698,11 +833,12 @@ export function resetGameState() {
   state.selectedIds = []
   state.selectedResource = null
   state.mapReady = false
-  state.resources[TEAM.PLAYER] = { food: 200, wood: 200, gold: 50, stone: 100 }
-  state.resources[TEAM.ENEMY] = { food: 200, wood: 200, gold: 50, stone: 100 }
+state.resources[TEAM.PLAYER] = { food: 9999, wood: 9999, gold: 9999, stone: 9999 }
+state.resources[TEAM.ENEMY] = { food: 9999, wood: 9999, gold: 9999, stone: 9999 }
   state.population[TEAM.PLAYER] = { current: 0, capacity: 0 }
   state.population[TEAM.ENEMY] = { current: 0, capacity: 0 }
   _nextId = 1
+  spatialGrid.clear()
   resetFog()
   scheduleNotify()
 }

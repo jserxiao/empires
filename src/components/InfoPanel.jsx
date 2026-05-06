@@ -207,7 +207,7 @@ function BuildingInfo({ building, buildModeState, onBuildModeChange, onActionDon
 // ===== 单位信息面板 =====
 
 /** 农民可建造的建筑列表 */
-const FARMER_BUILDINGS = ['town_center']
+const FARMER_BUILDINGS = ['town_center', 'civilian_house', 'city_wall', 'military_camp']
 
 function UnitInfo({ unit, buildModeState, onBuildModeChange }) {
   const handleBuildMode = (bType) => {
@@ -278,9 +278,21 @@ function UnitInfo({ unit, buildModeState, onBuildModeChange }) {
 
 // ===== 多选信息面板 =====
 
-function MultiSelectInfo({ entities }) {
+function MultiSelectInfo({ entities, buildModeState, onBuildModeChange }) {
   const totalHp = entities.reduce((s, u) => s + u.hp, 0)
   const totalMaxHp = entities.reduce((s, u) => s + u.maxHp, 0)
+  const hasFarmer = entities.some(u => u.gatherer)
+
+  const handleBuildMode = (bType) => {
+    const bm = getBuildMode()
+    if (bm && bm.buildingType === bType) {
+      cancelBuildMode()
+      onBuildModeChange(null)
+    } else {
+      enterBuildMode(bType)
+      onBuildModeChange(bType)
+    }
+  }
 
   return (
     <div className="info-section">
@@ -289,6 +301,29 @@ function MultiSelectInfo({ entities }) {
       </div>
       <HpBar hp={totalHp} maxHp={totalMaxHp} />
       <div className="info-hp-text">{totalHp} / {totalMaxHp}</div>
+
+      {/* 包含农民时显示建造面板 */}
+      {hasFarmer && (
+        <div className="info-block">
+          <div className="info-subtitle">建造建筑</div>
+          <div className="info-build-grid">
+            {FARMER_BUILDINGS.map(bType => {
+              const def = BUILDING_DEFS[bType]
+              if (!def) return null
+              const isActive = buildModeState === bType
+              return (
+                <button
+                  key={bType}
+                  className={`info-build-btn ${isActive ? 'active' : ''}`}
+                  onClick={() => handleBuildMode(bType)}
+                >
+                  {def.name}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -346,7 +381,7 @@ export default function InfoPanel({ gameState, buildModeState, onBuildModeChange
   // 多选
   return (
     <div className="info-panel">
-      <MultiSelectInfo entities={selected} />
+      <MultiSelectInfo entities={selected} buildModeState={buildModeState} onBuildModeChange={onBuildModeChange} />
     </div>
   )
 }

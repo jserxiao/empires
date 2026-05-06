@@ -8,8 +8,7 @@
  */
 
 import { Application, Container, Texture } from 'pixi.js'
-import { loadTexturesFromSVG, PNG_TO_SVG_MAP } from './SvgTextures.js'
-
+import { loadTexturesFromSVG, PNG_TO_SVG_MAP, PLAYER_COLORS } from './SvgTextures.js'
 let app = null
 let initialized = false
 let textures = {}
@@ -74,13 +73,15 @@ export async function initPixiApp(container) {
 
 /**
  * 加载所有游戏纹理（从 SVG spritesheet 提取）
+ * 同时加载红色（玩家）和蓝色（AI）两套配色纹理
  * @param {function} onProgress - 进度回调 (0~1)
  */
 export async function loadTextures(onProgress) {
-  // 从 SVG 加载纹理（返回 { svgName: Texture } 映射）
-  const svgTextures = await loadTexturesFromSVG(onProgress)
+  // 从 SVG 加载纹理（返回 { svgName: Texture, 'blue:svgName': Texture } 映射）
+  const colorKeys = Object.keys(PLAYER_COLORS)
+  const svgTextures = await loadTexturesFromSVG(onProgress, colorKeys)
 
-  // 建立旧 PNG 路径 → Texture 的映射（兼容现有代码）
+  // 建立旧 PNG 路径 → Texture 的映射（兼容现有代码，默认使用第一套配色）
   for (const [pngPath, svgName] of Object.entries(PNG_TO_SVG_MAP)) {
     textures[pngPath] = svgTextures[svgName] || Texture.EMPTY
   }
@@ -88,6 +89,18 @@ export async function loadTextures(onProgress) {
   // 同时保留 SVG 名 → Texture 的映射
   for (const [svgName, tex] of Object.entries(svgTextures)) {
     textures[svgName] = tex
+  }
+
+  // 为非默认配色也注册 PNG 路径映射（如 'blue:/PNG/Default size/Structure/...'）
+  for (let i = 1; i < colorKeys.length; i++) {
+    const colorKey = colorKeys[i]
+    for (const [pngPath, svgName] of Object.entries(PNG_TO_SVG_MAP)) {
+      const teamTexKey = `${colorKey}:${svgName}`
+      const teamTex = svgTextures[teamTexKey]
+      if (teamTex) {
+        textures[`${colorKey}:${pngPath}`] = teamTex
+      }
+    }
   }
 }
 
@@ -97,6 +110,30 @@ export async function loadTextures(onProgress) {
  * @returns {Texture}
  */
 export function getTexture(key) {
+  return textures[key] || Texture.EMPTY
+}
+
+/**
+ * 根据队伍获取对应配色的纹理
+ * @param {string} key - 图片路径或 SVG 资源名
+ * @param {string} colorKey - 玩家配色键名（'red', 'blue' 等）
+ * @returns {Texture}
+ */
+export function getTextureForTeam(key, colorKey) {
+  if (!colorKey || colorKey === 'red') {
+    // 默认配色，直接用原始key
+    return textures[key] || Texture.EMPTY
+  }
+  // 先尝试带前缀的原始key（如 'blue:/PNG/Default size/Structure/...'）
+  const teamTex1 = textures[`${colorKey}:${key}`]
+  if (teamTex1) return teamTex1
+  // 尝试通过 PNG → SVG 映射查找带前缀的 SVG 名称
+  const svgName = PNG_TO_SVG_MAP[key]
+  if (svgName) {
+    const teamTex2 = textures[`${colorKey}:${svgName}`]
+    if (teamTex2) return teamTex2
+  }
+  // 回退到原始key
   return textures[key] || Texture.EMPTY
 }
 

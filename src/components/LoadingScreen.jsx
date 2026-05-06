@@ -1,4 +1,4 @@
-import { MAP_CONFIG } from '../mapConstants'
+import { MAP_CONFIG } from '../core/constants'
 
 const { COLS, ROWS } = MAP_CONFIG
 

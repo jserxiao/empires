@@ -15,12 +15,13 @@ import {
   TILE_IMAGES, RESOURCE_DEFS, ENTITY_STATE, UNIT_DISPLAY_SIZE,
   FOG_CONFIG, TEAM, BUILDING_DEFS,
 } from '../core/constants.js'
-import { getTexture, getLayers, renderFrame, getPixiApp } from '../core/PixiApp.js'
+import { getTexture, getTextureForTeam, getLayers, renderFrame, getPixiApp } from '../core/PixiApp.js'
 import { getFogData, getTileVisibility } from '../systems/FogOfWar.js'
 import { getBuildMode } from './InputHandler.js'
 import {
   Container, Sprite, Graphics, RenderTexture, Texture,
 } from 'pixi.js'
+import { TEAM_COLOR_MAP } from '../core/constants.js'
 
 const { COLS, ROWS, TILE_SIZE } = MAP_CONFIG
 
@@ -28,7 +29,9 @@ const { COLS, ROWS, TILE_SIZE } = MAP_CONFIG
 let staticCacheTexture = null
 let cachedViewportX = -Infinity
 let cachedViewportY = -Infinity
-const CACHE_PADDING = 2
+const CACHE_PADDING = 4    // 缓存区域比视口多出的边距（瓦片数）
+// 缓存区域范围记录（用于增量更新）
+let cacheStartCol = 0, cacheEndCol = 0, cacheStartRow = 0, cacheEndRow = 0
 
 // ===== 实体精灵缓存 =====
 // entityId → { container, sprites, hpBar, ... }
@@ -116,22 +119,26 @@ function renderStaticLayer(vp) {
   const vw = app.screen.width
   const vh = app.screen.height
 
-  const startCol = Math.max(0, Math.floor(vp.x / TILE_SIZE))
-  const endCol = Math.min(COLS, Math.ceil((vp.x + vw) / TILE_SIZE))
-  const startRow = Math.max(0, Math.floor(vp.y / TILE_SIZE))
-  const endRow = Math.min(ROWS, Math.ceil((vp.y + vh) / TILE_SIZE))
+  const viewStartCol = Math.max(0, Math.floor(vp.x / TILE_SIZE))
+  const viewEndCol = Math.min(COLS, Math.ceil((vp.x + vw) / TILE_SIZE))
+  const viewStartRow = Math.max(0, Math.floor(vp.y / TILE_SIZE))
+  const viewEndRow = Math.min(ROWS, Math.ceil((vp.y + vh) / TILE_SIZE))
 
-  const needRedraw = !staticCacheTexture ||
-    Math.abs(vp.x - cachedViewportX) > TILE_SIZE * CACHE_PADDING ||
-    Math.abs(vp.y - cachedViewportY) > TILE_SIZE * CACHE_PADDING
+  // 判断是否需要重建缓存（视口移动超出当前缓存范围）
+  const needRebuild = !staticCacheTexture ||
+    viewStartCol < cacheStartCol ||
+    viewEndCol > cacheEndCol ||
+    viewStartRow < cacheStartRow ||
+    viewEndRow > cacheEndRow
 
-  if (needRedraw) {
-    const csCol = Math.max(0, startCol - CACHE_PADDING)
-    const ceCol = Math.min(COLS, endCol + CACHE_PADDING)
-    const csRow = Math.max(0, startRow - CACHE_PADDING)
-    const ceRow = Math.min(ROWS, endRow + CACHE_PADDING)
-    const cw = (ceCol - csCol) * TILE_SIZE
-    const ch = (ceRow - csRow) * TILE_SIZE
+  if (needRebuild) {
+    // 新缓存范围：在视口基础上向四周扩展 CACHE_PADDING，但不超过地图边界
+    const newStartCol = Math.max(0, viewStartCol - CACHE_PADDING)
+    const newEndCol = Math.min(COLS, viewEndCol + CACHE_PADDING)
+    const newStartRow = Math.max(0, viewStartRow - CACHE_PADDING)
+    const newEndRow = Math.min(ROWS, viewEndRow + CACHE_PADDING)
+    const cw = (newEndCol - newStartCol) * TILE_SIZE
+    const ch = (newEndRow - newStartRow) * TILE_SIZE
 
     // 创建/重建 RenderTexture
     if (!staticCacheTexture || staticCacheTexture.width !== cw || staticCacheTexture.height !== ch) {
@@ -139,22 +146,25 @@ function renderStaticLayer(vp) {
       staticCacheTexture = RenderTexture.create({ width: cw, height: ch })
     }
 
-    // 用 Graphics 绘制所有瓦片到一个临时容器，再渲染到 RenderTexture
+    // 绘制所有瓦片到临时容器，再渲染到 RenderTexture
     const tempContainer = new Container()
     const mapData = getMapData()
 
-    for (let row = csRow; row < ceRow; row++) {
-      for (let col = csCol; col < ceCol; col++) {
+    for (let row = newStartRow; row < newEndRow; row++) {
+      for (let col = newStartCol; col < newEndCol; col++) {
         renderStaticTileToContainer(tempContainer, mapData, col, row,
-          (col - csCol) * TILE_SIZE, (row - csRow) * TILE_SIZE, TILE_SIZE)
+          (col - newStartCol) * TILE_SIZE, (row - newStartRow) * TILE_SIZE, TILE_SIZE)
       }
     }
 
-    // 渲染到 RenderTexture
     app.renderer.render({ container: tempContainer, target: staticCacheTexture })
     tempContainer.destroy({ children: true })
 
-    // 更新缓存瓦片位置
+    // 更新缓存范围记录
+    cacheStartCol = newStartCol
+    cacheEndCol = newEndCol
+    cacheStartRow = newStartRow
+    cacheEndRow = newEndRow
     cachedViewportX = vp.x
     cachedViewportY = vp.y
 
@@ -168,7 +178,7 @@ function renderStaticLayer(vp) {
     }
 
     const cacheSprite = tileLayer.children[0]
-    cacheSprite.position.set(csCol * TILE_SIZE, csRow * TILE_SIZE)
+    cacheSprite.position.set(cacheStartCol * TILE_SIZE, cacheStartRow * TILE_SIZE)
   }
 }
 
@@ -206,6 +216,7 @@ function renderSelectedResource(state, vp) {
 
 // ===== 黑雾层 =====
 let fogGraphics = null
+let lastFogVersion = -1
 
 function renderFogLayer(vp) {
   if (!FOG_CONFIG.enabled) {
@@ -217,7 +228,7 @@ function renderFogLayer(vp) {
     return
   }
 
-  const { fogExplored, fogVisible } = getFogData()
+  const { fogExplored, fogVisible, version } = getFogData()
   if (!fogExplored || !fogVisible) return
 
   const { fogLayer } = getLayers()
@@ -228,6 +239,11 @@ function renderFogLayer(vp) {
     fogGraphics.label = 'fog'
     fogLayer.addChild(fogGraphics)
   }
+
+  // 脏检查：version 没变且视口没变则跳过重绘
+  // （目前 fog 每帧都更新 version，所以实际上每帧都重绘，但批量绘制已大幅优化性能）
+  if (version === lastFogVersion) return
+  lastFogVersion = version
 
   fogGraphics.clear()
   fogGraphics.visible = true
@@ -240,25 +256,35 @@ function renderFogLayer(vp) {
   const fogAlpha = FOG_CONFIG.fogAlpha
   const exploredAlpha = FOG_CONFIG.exploredAlpha
 
-  // 批量绘制：先画所有未探索的，再画所有已探索灰雾的
-  // 这样可以减少 fill 状态切换
+  // 分两批绘制：先画所有已探索灰雾的，再画所有未探索的
+  // 每批只调用一次 fill，大幅减少 draw call
+  // 第一批：已探索但不在视野内（灰雾）
+  fogGraphics.beginPath()
   for (let row = startRow; row < endRow; row++) {
     for (let col = startCol; col < endCol; col++) {
       const idx = row * COLS + col
-      if (fogVisible[idx]) continue // 当前可见 - 不画黑雾
-
+      if (fogVisible[idx]) continue       // 当前可见 - 不画
+      if (!fogExplored[idx]) continue     // 未探索 - 留到第二批
       const px = col * TILE_SIZE
       const py = row * TILE_SIZE
-
-      if (fogExplored[idx]) {
-        fogGraphics.rect(px, py, TILE_SIZE, TILE_SIZE)
-        fogGraphics.fill({ color: 0x000000, alpha: exploredAlpha })
-      } else {
-        fogGraphics.rect(px, py, TILE_SIZE, TILE_SIZE)
-        fogGraphics.fill({ color: 0x000000, alpha: fogAlpha })
-      }
+      fogGraphics.rect(px, py, TILE_SIZE, TILE_SIZE)
     }
   }
+  fogGraphics.fill({ color: 0x000000, alpha: exploredAlpha })
+
+  // 第二批：未探索（黑雾）
+  fogGraphics.beginPath()
+  for (let row = startRow; row < endRow; row++) {
+    for (let col = startCol; col < endCol; col++) {
+      const idx = row * COLS + col
+      if (fogVisible[idx]) continue       // 当前可见 - 不画
+      if (fogExplored[idx]) continue      // 已探索 - 已在第一批画了
+      const px = col * TILE_SIZE
+      const py = row * TILE_SIZE
+      fogGraphics.rect(px, py, TILE_SIZE, TILE_SIZE)
+    }
+  }
+  fogGraphics.fill({ color: 0x000000, alpha: fogAlpha })
 }
 
 function renderStaticTileToContainer(container, mapData, col, row, px, py, size) {
@@ -457,19 +483,20 @@ function createEntitySprite(entity) {
 
 function updateBuildingSprite(data, b, isSelected) {
   const w = b.size.w * TILE_SIZE, h = b.size.h * TILE_SIZE
+  const colorKey = TEAM_COLOR_MAP[b.team] || 'red'
 
   // 确保精灵存在
   if (data.sprites.length === 0) {
     if (b.images && b.images.length >= 2) {
-      const topSprite = new Sprite(getTexture(b.images[0]))
-      const botSprite = new Sprite(getTexture(b.images[1]))
+      const topSprite = new Sprite(getTextureForTeam(b.images[0], colorKey))
+      const botSprite = new Sprite(getTextureForTeam(b.images[1], colorKey))
       topSprite.label = 'top'
       botSprite.label = 'bottom'
       data.container.addChild(topSprite)
       data.container.addChild(botSprite)
       data.sprites.push(topSprite, botSprite)
     } else if (b.image) {
-      const sprite = new Sprite(getTexture(b.image))
+      const sprite = new Sprite(getTextureForTeam(b.image, colorKey))
       sprite.label = 'main'
       data.container.addChild(sprite)
       data.sprites.push(sprite)
@@ -751,13 +778,16 @@ export function invalidateStaticCache() {
   }
   cachedViewportX = -Infinity
   cachedViewportY = -Infinity
-
-  // 清空 tileLayer
+  cacheStartCol = 0
+  cacheEndCol = 0
+  cacheStartRow = 0
+  cacheEndRow = 0
   const { tileLayer } = getLayers()
   tileLayer.removeChildren()
 
   // 重置黑雾 Graphics
   fogGraphics = null
+  lastFogVersion = -1
   const { fogLayer } = getLayers()
   if (fogLayer) fogLayer.removeChildren()
 }
@@ -779,6 +809,7 @@ export function clearEntitySprites() {
 
   // 重置黑雾 Graphics
   fogGraphics = null
+  lastFogVersion = -1
 
   // 重置选中资源高亮
   selectedResourceGraphics = null

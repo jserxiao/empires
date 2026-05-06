@@ -7,6 +7,7 @@ import {
   recalcPopulation, getEntity, removeEntity,
 } from '../core/GameState.js'
 import { MAP_CONFIG, ENTITY_STATE, UNIT_DEFS, UNIT_TYPE } from '../core/constants.js'
+import { invalidateStaticCache } from '../game/GameRenderer.js'
 
 const { COLS, ROWS, TILE_SIZE } = MAP_CONFIG
 
@@ -60,6 +61,7 @@ function processBuild(entity, dt, state) {
     entity.state = ENTITY_STATE.IDLE
     entity.animState = 'idle'
     entity.buildTargetId = null
+    invalidateStaticCache()
   }
 }
 

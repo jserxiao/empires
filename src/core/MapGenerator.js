@@ -91,7 +91,7 @@ function placeTC(map,tx,ty,team){map[ty][tx].structure={type:BUILDING_TYPE.TOWN_
 
 function findTL(map,cols,rows){const m=5;for(let y=m;y<rows-m-1;y++)for(let x=m;x<cols-m-1;x++){const il=t=>t===TERRAIN.GRASS||t===TERRAIN.EMPTY;if(il(map[y][x].terrain)&&il(map[y][x+1].terrain)&&il(map[y+1][x].terrain)&&il(map[y+1][x+1].terrain))return{x,y}}return null}
 
-function findEnemyStart(map,cols,rows,ps){const m=5;for(let y=rows-m-2;y>=m;y--)for(let x=cols-m-2;x>=m;x--){if(ps&&Math.sqrt((x-ps.x)**2+(y-ps.y)**2)<100)continue;const il=t=>t===TERRAIN.GRASS||t===TERRAIN.EMPTY;if(il(map[y][x].terrain)&&il(map[y]?.[x+1]?.terrain)&&il(map[y+1]?.[x]?.terrain)&&il(map[y+1]?.[x+1]?.terrain))return{x,y}}return null}
+function findEnemyStart(map,cols,rows,ps){const m=5,minDist=20,maxDist=40;let best=null,bestD=Infinity;for(let y=m;y<rows-m-2;y++)for(let x=m;x<cols-m-2;x++){const il=t=>t===TERRAIN.GRASS||t===TERRAIN.EMPTY;if(il(map[y][x].terrain)&&il(map[y]?.[x+1]?.terrain)&&il(map[y+1]?.[x]?.terrain)&&il(map[y+1]?.[x+1]?.terrain)){if(!ps)return{x,y};const d=Math.sqrt((x-ps.x)**2+(y-ps.y)**2);if(d>=minDist&&d<=maxDist&&d<bestD){bestD=d;best={x,y}}}}if(best)return best;for(let y=rows-m-2;y>=m;y--)for(let x=cols-m-2;x>=m;x--){if(ps&&Math.sqrt((x-ps.x)**2+(y-ps.y)**2)<25)continue;const il=t=>t===TERRAIN.GRASS||t===TERRAIN.EMPTY;if(il(map[y][x].terrain)&&il(map[y]?.[x+1]?.terrain)&&il(map[y+1]?.[x]?.terrain)&&il(map[y+1]?.[x+1]?.terrain))return{x,y}}return null}
 
 export function generateMap(cols,rows,seed){const p1=new PerlinNoise(seed),p2=new PerlinNoise(seed+12345);_uidC=0
   const map=[],cx=cols/2,cy=rows/2

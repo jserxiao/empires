@@ -7,7 +7,7 @@
  * - 如果附近一定范围内没有同类型资源了，则留在原地变为空闲
  */
 
-import { getState, addResource, consumeResource, clearSelectedResourceIfDepleted } from '../core/GameState.js'
+import { getState, addResource, consumeResource, clearSelectedResourceIfDepleted, createWalkableCheck } from '../core/GameState.js'
 import { MAP_CONFIG, ENTITY_STATE, RESOURCE_DEFS } from '../core/constants.js'
 import { findPath, pathToWorldPath, computePathLength } from '../core/Pathfinding.js'
 import { invalidateStaticCache } from '../game/GameRenderer.js'
@@ -214,18 +214,7 @@ function moveEntityTo(entity, tileX, tileY, state) {
 
   // 采集目标排除资源障碍，让农民能走到资源旁边
   const excludeResourceIdx = tileY * COLS + tileX
-
-  const walkableCheck = (x, y) => {
-    // 检查建筑障碍
-    for (const b of state.buildings.values()) {
-      if (x >= b.tileX && x < b.tileX + b.size.w &&
-          y >= b.tileY && y < b.tileY + b.size.h) return false
-    }
-    // 检查资源障碍（排除目标资源，让农民能走到它旁边）
-    const idx = y * COLS + x
-    if (idx !== excludeResourceIdx && state.resource[idx]) return false
-    return true
-  }
+  const walkableCheck = createWalkableCheck(state, undefined, excludeResourceIdx)
 
   const gridPath = findPath(state.terrain, startCol, startRow, tileX, tileY, walkableCheck)
   if (gridPath.length >= 2) {
