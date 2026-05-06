@@ -196,69 +196,6 @@ for (const [name, def] of Object.entries(SVG_SPRITE_DEFS)) {
   SVG_SPRITE_MAP[name] = def.bbox
 }
 
-// 旧PNG路径 → 新SVG资源名的映射
-export const PNG_TO_SVG_MAP = {
-  // 地形
-  '/PNG/Default size/Tile/深水.png':        '深水',
-  '/PNG/Default size/Tile/浅水.png':        '浅水',
-  '/PNG/Default size/Tile/土地.png':        '土地',
-  '/PNG/Default size/Tile/空地.png':        '空地',
-  '/PNG/Default size/Tile/草地.png':        '草地',
-  '/PNG/Default size/Tile/三棵树草地.png':   '三棵树草地',
-  '/PNG/Default size/Tile/medievalTile_58.png': 'tile_58',
-
-  // 道路
-  '/PNG/Default size/Tile/左右单路.png':     '左右单路',
-  '/PNG/Default size/Tile/上下单路.png':     '上下单路',
-  '/PNG/Default size/Tile/十字路.png':       '十字路',
-  '/PNG/Default size/Tile/无上丁字路.png':   '无上丁字路',
-  '/PNG/Default size/Tile/无下丁字路.png':   '无下丁字路',
-  '/PNG/Default size/Tile/无左丁字路.png':   '无左丁字路',
-  '/PNG/Default size/Tile/无右丁字路.png':   '无右丁字路',
-  '/PNG/Default size/Tile/左上角弯路.png':   '左上角弯路',
-  '/PNG/Default size/Tile/右上角弯路.png':   '右上角弯路',
-  '/PNG/Default size/Tile/左下角弯路.png':   '左下角弯路',
-  '/PNG/Default size/Tile/右下角弯路.png':   '右下角弯路',
-
-  // 环境/资源
-  '/PNG/Default size/Environment/尖木树.png':    'pine_tree',
-  '/PNG/Default size/Environment/圆木树.png':    'round_tree',
-  '/PNG/Default size/Environment/金矿.png':      'gold_mine',
-  '/PNG/Default size/Environment/大金矿.png':    'big_gold_mine',
-  '/PNG/Default size/Environment/一个石块.png':  'stone_1',
-  '/PNG/Default size/Environment/两个石块.png':  'stone_2',
-  '/PNG/Default size/Environment/三个石块.png':  'stone_3',
-  '/PNG/Default size/Environment/土块.png':      'dirt_1',
-  '/PNG/Default size/Environment/两个土块.png':  'dirt_2',
-  '/PNG/Default size/Environment/三个土块.png':  'dirt_3',
-
-  // 建筑
-  '/PNG/Default size/Structure/城镇中心上.png':   '城镇中心上',
-  '/PNG/Default size/Structure/城镇中心下.png':   '城镇中心下',
-  '/PNG/Default size/Structure/medievalStructure_03.png': 'house',
-  '/PNG/Default size/Structure/medievalStructure_04.png': 'farm',
-  '/PNG/Default size/Structure/medievalStructure_05.png': 'lumber_camp',
-  '/PNG/Default size/Structure/medievalStructure_08.png': 'mining_camp',
-  '/PNG/Default size/Structure/medievalStructure_09.png': 'barracks',
-  '/PNG/Default size/Structure/medievalStructure_10.png': 'archery',
-  '/PNG/Default size/Structure/medievalStructure_11.png': 'stable',
-  '/PNG/Default size/Structure/medievalStructure_13.png': 'tower',
-  '/PNG/Default size/Structure/civilian_house.png': 'civilian_house',
-  '/PNG/Default size/Structure/city_wall.png': 'city_wall',
-  '/PNG/Default size/Structure/military_camp.png': 'military_camp',
-
-  // 单位
-  '/PNG/Default size/Unit/男农夫.png':           '男农夫',
-  '/PNG/Default size/Unit/女农夫.png':           '女农夫',
-  '/PNG/Default size/Unit/medievalUnit_01.png':  'swordsman',
-  '/PNG/Default size/Unit/medievalUnit_03.png':  'archer',
-  '/PNG/Default size/Unit/medievalUnit_07.png':  'knight',
-  '/PNG/Default size/Unit/halberdier.png':       'halberdier',
-  '/PNG/Default size/Unit/iron_guard.png':       'iron_guard',
-
-  // 环境回退
-  '/PNG/Default size/Environment/浆果.png':      'berry',
-}
 
 /**
  * 加载单个 SVG 并渲染到离屏 Canvas

@@ -552,7 +552,8 @@ function updateUnitSprite(data, u, isSelected, vp) {
 
   // 主精灵
   if (!data.sprite) {
-    const tex = getTexture(u.image)
+    const colorKey = u.team != null ? TEAM_COLOR_MAP[u.team] : null
+    const tex = getTextureForTeam(u.image, colorKey)
     const sprite = new Sprite(tex)
     sprite.width = uw
     sprite.height = uh

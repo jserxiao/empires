@@ -135,20 +135,20 @@ export const TEAM_COLOR_MAP = {
 
 // ========== 资源定义 ==========
 export const RESOURCE_DEFS = {
-  pine_tree:     { name: '尖木树',  image: '/PNG/Default size/Environment/尖木树.png',   type: RESOURCE_TYPE.WOOD,  amount: 100, gatherRate: 0.5 },
-  round_tree:    { name: '圆木树',  image: '/PNG/Default size/Environment/圆木树.png',   type: RESOURCE_TYPE.WOOD,  amount: 100, gatherRate: 0.5 },
-  berry:         { name: '浆果',    images: ['/PNG/Default size/Environment/浆果.png', '/PNG/Default size/Environment/浆果.png', '/PNG/Default size/Environment/浆果.png', '/PNG/Default size/Environment/浆果.png'], type: RESOURCE_TYPE.FOOD,  amount: 125, gatherRate: 0.35 },
-  gold_mine:     { name: '金矿',    image: '/PNG/Default size/Environment/金矿.png',     type: RESOURCE_TYPE.GOLD,  amount: 800, gatherRate: 0.3 },
-  big_gold_mine: { name: '大金矿',  image: '/PNG/Default size/Environment/大金矿.png',   type: RESOURCE_TYPE.GOLD,  amount: 2000, gatherRate: 0.3 },
-  gold_pile:     { name: '金矿堆',  images: ['/PNG/Default size/Environment/金矿.png', '/PNG/Default size/Environment/大金矿.png'], type: RESOURCE_TYPE.GOLD,  amount: 1500, gatherRate: 0.3 },
-  gold_cluster:  { name: '金矿群',  images: ['/PNG/Default size/Environment/大金矿.png', '/PNG/Default size/Environment/金矿.png', '/PNG/Default size/Environment/金矿.png', '/PNG/Default size/Environment/金矿.png'], type: RESOURCE_TYPE.GOLD, amount: 3000, gatherRate: 0.3 },
-  stone_1:       { name: '一个石块', image: '/PNG/Default size/Environment/一个石块.png', type: RESOURCE_TYPE.STONE, amount: 150, gatherRate: 0.35 },
-  stone_2:       { name: '两个石块', image: '/PNG/Default size/Environment/两个石块.png', type: RESOURCE_TYPE.STONE, amount: 300, gatherRate: 0.35 },
-  stone_3:       { name: '三个石块', image: '/PNG/Default size/Environment/三个石块.png', type: RESOURCE_TYPE.STONE, amount: 400, gatherRate: 0.35 },
-  stone_cluster: { name: '石矿群',  images: ['/PNG/Default size/Environment/三个石块.png', '/PNG/Default size/Environment/两个石块.png', '/PNG/Default size/Environment/一个石块.png', '/PNG/Default size/Environment/一个石块.png'], type: RESOURCE_TYPE.STONE, amount: 2000, gatherRate: 0.35 },
-  dirt_1:        { name: '土块',    image: '/PNG/Default size/Environment/土块.png',     type: RESOURCE_TYPE.STONE, amount: 50,  gatherRate: 0.4 },
-  dirt_2:        { name: '两个土块', image: '/PNG/Default size/Environment/两个土块.png', type: RESOURCE_TYPE.STONE, amount: 100, gatherRate: 0.4 },
-  dirt_3:        { name: '三个土块', image: '/PNG/Default size/Environment/三个土块.png', type: RESOURCE_TYPE.STONE, amount: 150, gatherRate: 0.4 },
+  pine_tree:     { name: '尖木树',  image: 'pine_tree',   type: RESOURCE_TYPE.WOOD,  amount: 100, gatherRate: 0.5 },
+  round_tree:    { name: '圆木树',  image: 'round_tree',   type: RESOURCE_TYPE.WOOD,  amount: 100, gatherRate: 0.5 },
+  berry:         { name: '浆果',    images: ['berry', 'berry', 'berry', 'berry'], type: RESOURCE_TYPE.FOOD,  amount: 125, gatherRate: 0.35 },
+  gold_mine:     { name: '金矿',    image: 'gold_mine',     type: RESOURCE_TYPE.GOLD,  amount: 800, gatherRate: 0.3 },
+  big_gold_mine: { name: '大金矿',  image: 'big_gold_mine',   type: RESOURCE_TYPE.GOLD,  amount: 2000, gatherRate: 0.3 },
+  gold_pile:     { name: '金矿堆',  images: ['gold_mine', 'big_gold_mine'], type: RESOURCE_TYPE.GOLD,  amount: 1500, gatherRate: 0.3 },
+  gold_cluster:  { name: '金矿群',  images: ['big_gold_mine', 'gold_mine', 'gold_mine', 'gold_mine'], type: RESOURCE_TYPE.GOLD, amount: 3000, gatherRate: 0.3 },
+  stone_1:       { name: '一个石块', image: 'stone_1', type: RESOURCE_TYPE.STONE, amount: 150, gatherRate: 0.35 },
+  stone_2:       { name: '两个石块', image: 'stone_2', type: RESOURCE_TYPE.STONE, amount: 300, gatherRate: 0.35 },
+  stone_3:       { name: '三个石块', image: 'stone_3', type: RESOURCE_TYPE.STONE, amount: 400, gatherRate: 0.35 },
+  stone_cluster: { name: '石矿群',  images: ['stone_3', 'stone_2', 'stone_1', 'stone_1'], type: RESOURCE_TYPE.STONE, amount: 2000, gatherRate: 0.35 },
+  dirt_1:        { name: '土块',    image: 'dirt_1',     type: RESOURCE_TYPE.STONE, amount: 50,  gatherRate: 0.4 },
+  dirt_2:        { name: '两个土块', image: 'dirt_2', type: RESOURCE_TYPE.STONE, amount: 100, gatherRate: 0.4 },
+  dirt_3:        { name: '三个土块', image: 'dirt_3', type: RESOURCE_TYPE.STONE, amount: 150, gatherRate: 0.4 },
 }
 
 // ========== 单位定义 ==========
@@ -156,7 +156,7 @@ export const UNIT_DEFS = {
   [UNIT_TYPE.FARMER]: {
     name: '农夫',
     // 统一农夫定义，实际创建时随机男女
-    image: '/PNG/Default size/Unit/男农夫.png',
+    image: '男农夫',
     maxHp: 35,
     attack: 3,
     armor: 0,
@@ -172,7 +172,7 @@ export const UNIT_DEFS = {
   },
   [UNIT_TYPE.MALE_FARMER]: {
     name: '男农夫',
-    image: '/PNG/Default size/Unit/女农夫.png',  // 图片男女标签反了，交换路径
+    image: '女农夫',  // SVG男女标签反了，交换名称
     maxHp: 40,
     attack: 3,
     armor: 0,
@@ -186,7 +186,7 @@ export const UNIT_DEFS = {
   },
   [UNIT_TYPE.FEMALE_FARMER]: {
     name: '女农夫',
-    image: '/PNG/Default size/Unit/男农夫.png',  // 图片男女标签反了，交换路径
+    image: '男农夫',  // SVG男女标签反了，交换名称
     maxHp: 30,
     attack: 2,
     armor: 0,
@@ -200,7 +200,7 @@ export const UNIT_DEFS = {
   },
   [UNIT_TYPE.SWORDSMAN]: {
     name: '剑士',
-    image: '/PNG/Default size/Unit/medievalUnit_01.png',
+    image: 'swordsman',
     maxHp: 60,
     attack: 8,
     armor: 2,
@@ -214,7 +214,7 @@ export const UNIT_DEFS = {
   },
   [UNIT_TYPE.ARCHER]: {
     name: '弓箭手',
-    image: '/PNG/Default size/Unit/medievalUnit_03.png',
+    image: 'archer',
     maxHp: 30,
     attack: 6,
     armor: 0,
@@ -228,7 +228,7 @@ export const UNIT_DEFS = {
   },
   [UNIT_TYPE.KNIGHT]: {
     name: '骑士',
-    image: '/PNG/Default size/Unit/medievalUnit_07.png',
+    image: 'knight',
     maxHp: 100,
     attack: 12,
     armor: 4,
@@ -242,7 +242,7 @@ export const UNIT_DEFS = {
   },
   [UNIT_TYPE.HALBERDIER]: {
     name: '执戟卫士',
-    image: '/PNG/Default size/Unit/halberdier.png',
+    image: 'halberdier',
     maxHp: 70,
     attack: 10,
     armor: 3,
@@ -256,7 +256,7 @@ export const UNIT_DEFS = {
   },
   [UNIT_TYPE.IRON_GUARD]: {
     name: '铁甲卫士',
-    image: '/PNG/Default size/Unit/iron_guard.png',
+    image: 'iron_guard',
     maxHp: 120,
     attack: 8,
     armor: 6,
@@ -274,7 +274,7 @@ export const UNIT_DEFS = {
 export const BUILDING_DEFS = {
   [BUILDING_TYPE.TOWN_CENTER]: {
     name: '城镇中心',
-    images: ['/PNG/Default size/Structure/城镇中心上.png', '/PNG/Default size/Structure/城镇中心下.png'],
+    images: ['城镇中心上', '城镇中心下'],
     size: { w: 2, h: 2 },
     maxHp: 600,
     cost: { food: 0, wood: 200, gold: 0, stone: 0 },
@@ -285,7 +285,7 @@ export const BUILDING_DEFS = {
   },
   [BUILDING_TYPE.HOUSE]: {
     name: '房屋',
-    image: '/PNG/Default size/Structure/medievalStructure_03.png',
+    image: 'house',
     size: { w: 2, h: 2 },
     maxHp: 100,
     cost: { food: 0, wood: 30, gold: 0, stone: 0 },
@@ -294,7 +294,7 @@ export const BUILDING_DEFS = {
   },
   [BUILDING_TYPE.FARM]: {
     name: '农场',
-    image: '/PNG/Default size/Structure/medievalStructure_04.png',
+    image: 'farm',
     size: { w: 2, h: 2 },
     maxHp: 50,
     cost: { food: 0, wood: 60, gold: 0, stone: 0 },
@@ -304,7 +304,7 @@ export const BUILDING_DEFS = {
   },
   [BUILDING_TYPE.LUMBER_CAMP]: {
     name: '伐木场',
-    image: '/PNG/Default size/Structure/medievalStructure_05.png',
+    image: 'lumber_camp',
     size: { w: 2, h: 2 },
     maxHp: 100,
     cost: { food: 0, wood: 100, gold: 0, stone: 0 },
@@ -314,7 +314,7 @@ export const BUILDING_DEFS = {
   },
   [BUILDING_TYPE.MINING_CAMP]: {
     name: '采矿场',
-    image: '/PNG/Default size/Structure/medievalStructure_08.png',
+    image: 'mining_camp',
     size: { w: 2, h: 2 },
     maxHp: 100,
     cost: { food: 0, wood: 100, gold: 0, stone: 0 },
@@ -324,7 +324,7 @@ export const BUILDING_DEFS = {
   },
   [BUILDING_TYPE.BARRACKS]: {
     name: '兵营',
-    image: '/PNG/Default size/Structure/medievalStructure_09.png',
+    image: 'barracks',
     size: { w: 2, h: 2 },
     maxHp: 200,
     cost: { food: 0, wood: 175, gold: 0, stone: 0 },
@@ -333,7 +333,7 @@ export const BUILDING_DEFS = {
   },
   [BUILDING_TYPE.ARCHERY_RANGE]: {
     name: '射箭场',
-    image: '/PNG/Default size/Structure/medievalStructure_10.png',
+    image: 'archery',
     size: { w: 2, h: 2 },
     maxHp: 180,
     cost: { food: 0, wood: 175, gold: 0, stone: 0 },
@@ -342,7 +342,7 @@ export const BUILDING_DEFS = {
   },
   [BUILDING_TYPE.STABLE]: {
     name: '马厩',
-    image: '/PNG/Default size/Structure/medievalStructure_11.png',
+    image: 'stable',
     size: { w: 2, h: 2 },
     maxHp: 200,
     cost: { food: 0, wood: 150, gold: 50, stone: 0 },
@@ -351,7 +351,7 @@ export const BUILDING_DEFS = {
   },
   [BUILDING_TYPE.TOWER]: {
     name: '箭塔',
-    image: '/PNG/Default size/Structure/medievalStructure_13.png',
+    image: 'tower',
     size: { w: 1, h: 1 },
     maxHp: 150,
     cost: { food: 0, wood: 50, gold: 0, stone: 100 },
@@ -362,7 +362,7 @@ export const BUILDING_DEFS = {
   },
   [BUILDING_TYPE.CIVILIAN_HOUSE]: {
     name: '民房',
-    image: '/PNG/Default size/Structure/civilian_house.png',
+    image: 'civilian_house',
     size: { w: 1, h: 1 },
     maxHp: 120,
     cost: { food: 0, wood: 25, gold: 0, stone: 0 },
@@ -371,7 +371,7 @@ export const BUILDING_DEFS = {
   },
   [BUILDING_TYPE.CITY_WALL]: {
     name: '城墙',
-    image: '/PNG/Default size/Structure/city_wall.png',
+    image: 'city_wall',
     size: { w: 1, h: 1 },
     maxHp: 300,
     cost: { food: 0, wood: 0, gold: 0, stone: 10 },
@@ -379,7 +379,7 @@ export const BUILDING_DEFS = {
   },
   [BUILDING_TYPE.MILITARY_CAMP]: {
     name: '军营',
-    image: '/PNG/Default size/Structure/military_camp.png',
+    image: 'military_camp',
     size: { w: 2, h: 1 },
     maxHp: 250,
     cost: { food: 0, wood: 150, gold: 50, stone: 0 },
@@ -390,27 +390,27 @@ export const BUILDING_DEFS = {
 
 // ========== 瓦片图片映射 ==========
 export const TILE_IMAGES = {
-  [TERRAIN.DEEP_WATER]: '/PNG/Default size/Tile/深水.png',
-  [TERRAIN.SHALLOW_WATER]: '/PNG/Default size/Tile/浅水.png',
-  [TERRAIN.SAND]: '/PNG/Default size/Tile/土地.png',
-  [TERRAIN.EMPTY]: '/PNG/Default size/Tile/空地.png',
-  [TERRAIN.GRASS]: '/PNG/Default size/Tile/草地.png',
-  [TERRAIN.FOREST]: '/PNG/Default size/Tile/三棵树草地.png',
-  [TERRAIN.MOUNTAIN]: '/PNG/Default size/Tile/medievalTile_58.png',
+  [TERRAIN.DEEP_WATER]: '深水',
+  [TERRAIN.SHALLOW_WATER]: '浅水',
+  [TERRAIN.SAND]: '土地',
+  [TERRAIN.EMPTY]: '空地',
+  [TERRAIN.GRASS]: '草地',
+  [TERRAIN.FOREST]: '三棵树草地',
+  [TERRAIN.MOUNTAIN]: 'tile_58',
 }
 
 export const ROAD_IMAGES = {
-  [ROAD.HORIZONTAL]: '/PNG/Default size/Tile/左右单路.png',
-  [ROAD.VERTICAL]: '/PNG/Default size/Tile/上下单路.png',
-  [ROAD.CROSS]: '/PNG/Default size/Tile/十字路.png',
-  [ROAD.T_TOP]: '/PNG/Default size/Tile/无上丁字路.png',
-  [ROAD.T_BOTTOM]: '/PNG/Default size/Tile/无下丁字路.png',
-  [ROAD.T_LEFT]: '/PNG/Default size/Tile/无左丁字路.png',
-  [ROAD.T_RIGHT]: '/PNG/Default size/Tile/无右丁字路.png',
-  [ROAD.CORNER_TL]: '/PNG/Default size/Tile/左上角弯路.png',
-  [ROAD.CORNER_TR]: '/PNG/Default size/Tile/右上角弯路.png',
-  [ROAD.CORNER_BL]: '/PNG/Default size/Tile/左下角弯路.png',
-  [ROAD.CORNER_BR]: '/PNG/Default size/Tile/右下角弯路.png',
+  [ROAD.HORIZONTAL]: '左右单路',
+  [ROAD.VERTICAL]: '上下单路',
+  [ROAD.CROSS]: '十字路',
+  [ROAD.T_TOP]: '无上丁字路',
+  [ROAD.T_BOTTOM]: '无下丁字路',
+  [ROAD.T_LEFT]: '无左丁字路',
+  [ROAD.T_RIGHT]: '无右丁字路',
+  [ROAD.CORNER_TL]: '左上角弯路',
+  [ROAD.CORNER_TR]: '右上角弯路',
+  [ROAD.CORNER_BL]: '左下角弯路',
+  [ROAD.CORNER_BR]: '右下角弯路',
 }
 
 export const ROAD_COLOR = '#b0976a'
@@ -424,21 +424,4 @@ export const FOG_CONFIG = {
   exploredAlpha: 0.45,        // 已探索但不在视野内的灰雾透明度
 }
 
-// ========== 所有需要预加载的图片路径 ==========
-export function getAllImagePaths() {
-  const paths = new Set()
-  for (const p of Object.values(TILE_IMAGES)) paths.add(p)
-  for (const p of Object.values(ROAD_IMAGES)) paths.add(p)
-  for (const def of Object.values(RESOURCE_DEFS)) {
-    if (def.image) paths.add(def.image)
-    if (def.images) for (const p of def.images) paths.add(p)
-  }
-  for (const def of Object.values(BUILDING_DEFS)) {
-    if (def.image) paths.add(def.image)
-    if (def.images) for (const p of def.images) paths.add(p)
-  }
-  for (const def of Object.values(UNIT_DEFS)) {
-    if (def.image) paths.add(def.image)
-  }
-  return Array.from(paths)
-}
+
