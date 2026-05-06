@@ -468,12 +468,13 @@ export function consumeResource(x, y, amount) {
   return taken
 }
 
-export function isTileWalkable(x, y) {
+export function isTileWalkable(x, y, excludeBuildingId) {
   const terrain = getTerrain(x, y)
   if (terrain === TERRAIN.DEEP_WATER || terrain === TERRAIN.SHALLOW_WATER) return false
-  // 检查建筑占位
+  // 检查建筑占位（所有建筑都是障碍物，包括建造中的）
   for (const b of state.buildings.values()) {
-    if (b.isBuilt && x >= b.tileX && x < b.tileX + b.size.w && y >= b.tileY && y < b.tileY + b.size.h) {
+    if (b.id === excludeBuildingId) continue // 排除指定建筑（如建造目标）
+    if (x >= b.tileX && x < b.tileX + b.size.w && y >= b.tileY && y < b.tileY + b.size.h) {
       return false
     }
   }
@@ -546,6 +547,61 @@ export function addBuildProgress(buildingId, amount) {
   }
   scheduleNotify()
   return building.isBuilt
+}
+
+// ===== 取消建造（退回部分资源） =====
+export function cancelBuild(buildingId) {
+  const building = state.buildings.get(buildingId)
+  if (!building || building.isBuilt) return false
+
+  const def = BUILDING_DEFS[building.type]
+  if (!def) return false
+
+  // 退回 60% 资源
+  const refundRate = 0.6
+  for (const [type, amount] of Object.entries(def.cost)) {
+    addResource(building.team, type, Math.floor(amount * refundRate))
+  }
+
+  // 释放正在建造此建筑的建造者
+  for (const entity of state.entities.values()) {
+    if (entity.entityType === 'unit' && entity.buildTargetId === buildingId) {
+      entity.state = ENTITY_STATE.IDLE
+      entity.animState = 'idle'
+      entity.buildTargetId = null
+    }
+  }
+
+  // 从选中列表移除
+  state.selectedIds = state.selectedIds.filter(sid => sid !== buildingId)
+
+  removeEntity(buildingId)
+  return true
+}
+
+// ===== 拆除建筑（已完成的建筑） =====
+export function demolishBuilding(buildingId) {
+  const building = state.buildings.get(buildingId)
+  if (!building || !building.isBuilt) return false
+
+  const def = BUILDING_DEFS[building.type]
+  if (!def) return false
+
+  // 退回 30% 资源
+  const refundRate = 0.3
+  for (const [type, amount] of Object.entries(def.cost)) {
+    addResource(building.team, type, Math.floor(amount * refundRate))
+  }
+
+  // 取消此建筑上的训练队列
+  state.trainingQueues.delete(buildingId)
+
+  // 从选中列表移除
+  state.selectedIds = state.selectedIds.filter(sid => sid !== buildingId)
+
+  removeEntity(buildingId)
+  recalcPopulation()
+  return true
 }
 
 // ===== 通知/订阅 =====

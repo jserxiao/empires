@@ -80,6 +80,7 @@ export const ENTITY_STATE = {
 
 // ========== 单位类型 ==========
 export const UNIT_TYPE = {
+  FARMER: 'farmer',
   MALE_FARMER: 'male_farmer',
   FEMALE_FARMER: 'female_farmer',
   SWORDSMAN: 'swordsman',
@@ -89,6 +90,7 @@ export const UNIT_TYPE = {
 
 // ========== 单位显示尺寸 (相对 TILE_SIZE 的比例) ==========
 export const UNIT_DISPLAY_SIZE = {
+  farmer:        { w: 0.25, h: 0.4 },
   male_farmer:   { w: 0.25, h: 0.4 },
   female_farmer: { w: 0.25, h: 0.4 },
   swordsman:     { w: 0.8,  h: 0.8 },
@@ -137,9 +139,26 @@ export const RESOURCE_DEFS = {
 
 // ========== 单位定义 ==========
 export const UNIT_DEFS = {
+  [UNIT_TYPE.FARMER]: {
+    name: '农夫',
+    // 统一农夫定义，实际创建时随机男女
+    image: '/PNG/Default size/Unit/男农夫.png',
+    maxHp: 35,
+    attack: 3,
+    armor: 0,
+    range: 1,
+    moveSpeed: 1.2,
+    attackSpeed: 1.3,
+    cost: { food: 50, wood: 0, gold: 0, stone: 0 },
+    trainTime: 15,
+    gatherer: true,
+    population: 1,
+    // 训练完成时随机选一个实际单位类型
+    randomTrainResult: [UNIT_TYPE.MALE_FARMER, UNIT_TYPE.FEMALE_FARMER],
+  },
   [UNIT_TYPE.MALE_FARMER]: {
     name: '男农夫',
-    image: '/PNG/Default size/Unit/男农夫.png',
+    image: '/PNG/Default size/Unit/女农夫.png',  // 图片男女标签反了，交换路径
     maxHp: 40,
     attack: 3,
     armor: 0,
@@ -153,7 +172,7 @@ export const UNIT_DEFS = {
   },
   [UNIT_TYPE.FEMALE_FARMER]: {
     name: '女农夫',
-    image: '/PNG/Default size/Unit/女农夫.png',
+    image: '/PNG/Default size/Unit/男农夫.png',  // 图片男女标签反了，交换路径
     maxHp: 30,
     attack: 2,
     armor: 0,
@@ -220,7 +239,7 @@ export const BUILDING_DEFS = {
     buildTime: 60,
     dropSite: true,
     populationProvide: 5,
-    trainableUnits: [UNIT_TYPE.MALE_FARMER, UNIT_TYPE.FEMALE_FARMER],
+    trainableUnits: [UNIT_TYPE.FARMER],
   },
   [BUILDING_TYPE.HOUSE]: {
     name: '房屋',

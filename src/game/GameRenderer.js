@@ -13,10 +13,11 @@ import { getState, getMapData } from '../core/GameState.js'
 import {
   MAP_CONFIG, TERRAIN, TERRAIN_COLORS, ROAD, ROAD_IMAGES,
   TILE_IMAGES, RESOURCE_DEFS, ENTITY_STATE, UNIT_DISPLAY_SIZE,
-  FOG_CONFIG, TEAM,
+  FOG_CONFIG, TEAM, BUILDING_DEFS,
 } from '../core/constants.js'
 import { getTexture, getLayers, renderFrame, getPixiApp } from '../core/PixiApp.js'
 import { getFogData, getTileVisibility } from '../systems/FogOfWar.js'
+import { getBuildMode } from './InputHandler.js'
 import {
   Container, Sprite, Graphics, RenderTexture, Texture,
 } from 'pixi.js'
@@ -98,7 +99,10 @@ export function renderGame(alpha, projectiles) {
   // 6. 弹道
   renderProjectiles(projectiles)
 
-  // 7. 手动渲染
+  // 7. 建造预览
+  renderBuildPreview()
+
+  // 8. 手动渲染
   renderFrame()
 }
 
@@ -571,6 +575,112 @@ export function renderSelectionBox(box) {
   selectionBoxGraphics.rect(x, y, w, h).stroke({ color: 0x64b4ff, alpha: 0.8, width: 1.5 })
 }
 
+// ===== 建造预览 =====
+let buildPreviewContainer = null
+let bpOutline = null
+let bpSprites = []
+
+function renderBuildPreview() {
+  const bm = getBuildMode()
+  const { entityLayer } = getLayers()
+
+  if (!bm) {
+    if (buildPreviewContainer) {
+      buildPreviewContainer.visible = false
+    }
+    return
+  }
+
+  const def = BUILDING_DEFS[bm.buildingType]
+  if (!def) return
+
+  // 确保 Container 和轮廓 Graphics 存在
+  if (!buildPreviewContainer) {
+    buildPreviewContainer = new Container()
+    buildPreviewContainer.label = 'buildPreview'
+    entityLayer.addChild(buildPreviewContainer)
+
+    bpOutline = new Graphics()
+    bpOutline.label = 'outline'
+    buildPreviewContainer.addChild(bpOutline)
+  }
+
+  // 根据建筑定义创建/更新建筑精灵
+  const images = def.images
+  const needRebuild = bpSprites.length === 0 || bpSprites[0]._bType !== bm.buildingType
+  if (needRebuild) {
+    // 清理旧精灵
+    for (const s of bpSprites) s.destroy({ children: true, texture: false })
+    bpSprites = []
+
+    if (images && images.length >= 2) {
+      const topSprite = new Sprite(getTexture(images[0]))
+      topSprite.label = 'bpTop'
+      topSprite._bType = bm.buildingType
+      topSprite.alpha = 0.5
+      buildPreviewContainer.addChild(topSprite)
+      bpSprites.push(topSprite)
+
+      const botSprite = new Sprite(getTexture(images[1]))
+      botSprite.label = 'bpBot'
+      botSprite._bType = bm.buildingType
+      botSprite.alpha = 0.5
+      buildPreviewContainer.addChild(botSprite)
+      bpSprites.push(botSprite)
+    } else if (def.image) {
+      const sprite = new Sprite(getTexture(def.image))
+      sprite.label = 'bpMain'
+      sprite._bType = bm.buildingType
+      sprite.alpha = 0.5
+      buildPreviewContainer.addChild(sprite)
+      bpSprites.push(sprite)
+    }
+  }
+
+  buildPreviewContainer.visible = true
+
+  const col = bm.previewCol
+  const row = bm.previewRow
+  const isValid = bm.isValid
+  const bw = def.size.w * TILE_SIZE
+  const bh = def.size.h * TILE_SIZE
+  const px = col * TILE_SIZE
+  const py = row * TILE_SIZE
+
+  // 更新轮廓
+  bpOutline.clear()
+  if (isValid) {
+    bpOutline.rect(px, py, bw, bh)
+    bpOutline.fill({ color: 0x00ff00, alpha: 0.2 })
+    bpOutline.rect(px, py, bw, bh)
+    bpOutline.stroke({ color: 0x00ff00, alpha: 0.8, width: 2 })
+  } else {
+    bpOutline.rect(px, py, bw, bh)
+    bpOutline.fill({ color: 0xff0000, alpha: 0.2 })
+    bpOutline.rect(px, py, bw, bh)
+    bpOutline.stroke({ color: 0xff0000, alpha: 0.8, width: 2 })
+  }
+
+  // 更新建筑精灵位置
+  if (images && images.length >= 2 && bpSprites.length >= 2) {
+    const imgW = TILE_SIZE, imgH = TILE_SIZE
+    const ox = (bw - imgW) / 2
+    bpSprites[0].position.set(px + ox, py)
+    bpSprites[0].width = imgW
+    bpSprites[0].height = imgH
+    bpSprites[1].position.set(px + ox, py + imgH)
+    bpSprites[1].width = imgW
+    bpSprites[1].height = imgH
+  } else if (bpSprites.length === 1) {
+    bpSprites[0].position.set(px, py)
+    bpSprites[0].width = bw
+    bpSprites[0].height = bh
+  }
+
+  // 设置深度排序
+  buildPreviewContainer.zIndex = py + bh
+}
+
 /**
  * 使静态缓存失效（建筑建造等场景调用）
  */
@@ -609,4 +719,9 @@ export function clearEntitySprites() {
 
   // 重置黑雾 Graphics
   fogGraphics = null
+
+  // 重置建造预览
+  buildPreviewContainer = null
+  bpOutline = null
+  bpSprites = []
 }

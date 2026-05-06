@@ -110,7 +110,7 @@ function moveEntityTo(entity, tileX, tileY, state) {
 
   const walkableCheck = (x, y) => {
     for (const b of state.buildings.values()) {
-      if (b.isBuilt && x >= b.tileX && x < b.tileX + b.size.w &&
+      if (x >= b.tileX && x < b.tileX + b.size.w &&
           y >= b.tileY && y < b.tileY + b.size.h) return false
     }
     return true

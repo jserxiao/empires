@@ -14,6 +14,22 @@ import { findPath, pathToWorldPath, computePathLength } from '../core/Pathfindin
 const { COLS, ROWS, TILE_SIZE } = MAP_CONFIG
 
 /**
+ * 创建通行检查函数 - 所有建筑（含建造中）都是障碍物
+ */
+function createWalkableCheck(state, excludeBuildingId) {
+  return (x, y) => {
+    for (const b of state.buildings.values()) {
+      if (b.id === excludeBuildingId) continue
+      if (x >= b.tileX && x < b.tileX + b.size.w &&
+          y >= b.tileY && y < b.tileY + b.size.h) {
+        return false
+      }
+    }
+    return true
+  }
+}
+
+/**
  * 每帧更新战斗
  */
 export function updateCombat(dt) {
@@ -73,13 +89,9 @@ function processAttack(entity, dt, projectiles) {
     const startCol = Math.floor(entity.x / TILE_SIZE)
     const startRow = Math.floor(entity.y / TILE_SIZE)
 
-    const walkableCheck = (x, y) => {
-      for (const b of state.buildings.values()) {
-        if (b.isBuilt && x >= b.tileX && x < b.tileX + b.size.w &&
-            y >= b.tileY && y < b.tileY + b.size.h) return false
-      }
-      return true
-    }
+    // 如果目标是建筑，寻路时排除该建筑以便走近攻击
+    const excludeId = target.entityType === 'building' ? target.id : undefined
+    const walkableCheck = createWalkableCheck(state, excludeId)
 
     const gridPath = findPath(state.terrain, startCol, startRow, targetCol, targetRow, walkableCheck)
     if (gridPath.length >= 2) {
@@ -165,13 +177,9 @@ function checkAggro(entity) {
         const startCol = Math.floor(entity.x / TILE_SIZE)
         const startRow = Math.floor(entity.y / TILE_SIZE)
 
-        const walkableCheck = (x, y) => {
-          for (const b of state.buildings.values()) {
-            if (b.isBuilt && x >= b.tileX && x < b.tileX + b.size.w &&
-                y >= b.tileY && y < b.tileY + b.size.h) return false
-          }
-          return true
-        }
+        // 如果仇恨目标是建筑，寻路时排除该建筑
+        const excludeId = other.entityType === 'building' ? other.id : undefined
+        const walkableCheck = createWalkableCheck(state, excludeId)
 
         const gridPath = findPath(state.terrain, startCol, startRow, targetCol, targetRow, walkableCheck)
         if (gridPath.length >= 2) {

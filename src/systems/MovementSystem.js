@@ -23,21 +23,29 @@ const EASE_DISTANCE = TILE_SIZE * 1.5
  * @param {number} targetCol - 目标列
  * @param {number} targetRow - 目标行
  */
-export function commandMove(unitIds, targetCol, targetRow) {
-  const state = getState()
-  const { terrain } = getMapData()
-
-  // 通行检查函数
-  const walkableCheck = (x, y) => {
-    // 检查建筑占位
+/**
+ * 创建通行检查函数 - 所有建筑（含建造中）都是障碍物
+ * @param {object} state - 游戏状态
+ * @param {number} [excludeBuildingId] - 排除的建筑ID（如建造目标，允许走近它）
+ */
+function createWalkableCheck(state, excludeBuildingId) {
+  return (x, y) => {
     for (const b of state.buildings.values()) {
-      if (b.isBuilt && x >= b.tileX && x < b.tileX + b.size.w &&
+      if (b.id === excludeBuildingId) continue
+      if (x >= b.tileX && x < b.tileX + b.size.w &&
           y >= b.tileY && y < b.tileY + b.size.h) {
         return false
       }
     }
     return true
   }
+}
+
+export function commandMove(unitIds, targetCol, targetRow) {
+  const state = getState()
+  const { terrain } = getMapData()
+
+  const walkableCheck = createWalkableCheck(state)
 
   // 分配目标位置
   const targets = distributeTargets(terrain, targetCol, targetRow, unitIds.length, walkableCheck)
@@ -84,6 +92,10 @@ export function commandAttack(unitIds, targetId) {
   const target = state.entities.get(targetId)
   if (!target) return
 
+  // 如果目标是建筑，寻路时排除该建筑以便走近攻击
+  const excludeId = target.entityType === 'building' ? targetId : undefined
+  const walkableCheck = createWalkableCheck(state, excludeId)
+
   for (const id of unitIds) {
     const entity = state.entities.get(id)
     if (!entity || entity.entityType !== 'unit') continue
@@ -98,14 +110,6 @@ export function commandAttack(unitIds, targetId) {
     const targetRow = Math.floor(target.y / TILE_SIZE)
     const startCol = Math.floor(entity.x / TILE_SIZE)
     const startRow = Math.floor(entity.y / TILE_SIZE)
-
-    const walkableCheck = (x, y) => {
-      for (const b of state.buildings.values()) {
-        if (b.isBuilt && x >= b.tileX && x < b.tileX + b.size.w &&
-            y >= b.tileY && y < b.tileY + b.size.h) return false
-      }
-      return true
-    }
 
     const gridPath = findPath(state.terrain, startCol, startRow, targetCol, targetRow, walkableCheck)
     if (gridPath.length >= 2) {
@@ -144,13 +148,7 @@ export function commandGather(unitIds, tileX, tileY) {
     const startCol = Math.floor(entity.x / TILE_SIZE)
     const startRow = Math.floor(entity.y / TILE_SIZE)
 
-    const walkableCheck = (x, y) => {
-      for (const b of state.buildings.values()) {
-        if (b.isBuilt && x >= b.tileX && x < b.tileX + b.size.w &&
-            y >= b.tileY && y < b.tileY + b.size.h) return false
-      }
-      return true
-    }
+    const walkableCheck = createWalkableCheck(state)
 
     const gridPath = findPath(state.terrain, startCol, startRow, tileX, tileY, walkableCheck)
     if (gridPath.length >= 2) {
@@ -174,6 +172,9 @@ export function commandBuild(unitIds, buildingId) {
   const building = state.buildings.get(buildingId)
   if (!building) return
 
+  // 寻路时排除目标建筑本身，让农民能走到建筑旁边
+  const walkableCheck = createWalkableCheck(state, buildingId)
+
   for (const id of unitIds) {
     const entity = state.entities.get(id)
     if (!entity || !entity.gatherer) continue
@@ -190,14 +191,6 @@ export function commandBuild(unitIds, buildingId) {
     const targetRow = building.tileY
     const startCol = Math.floor(entity.x / TILE_SIZE)
     const startRow = Math.floor(entity.y / TILE_SIZE)
-
-    const walkableCheck = (x, y) => {
-      for (const b of state.buildings.values()) {
-        if (b.id !== buildingId && b.isBuilt && x >= b.tileX && x < b.tileX + b.size.w &&
-            y >= b.tileY && y < b.tileY + b.size.h) return false
-      }
-      return true
-    }
 
     const gridPath = findPath(state.terrain, startCol, startRow, targetCol, targetRow, walkableCheck)
     if (gridPath.length >= 2) {

@@ -75,7 +75,7 @@ function updateTeamAI(team) {
   if (farmers.length < 5) {
     const tc = buildings.find(b => b.type === BUILDING_TYPE.TOWN_CENTER && b.isBuilt)
     if (tc && pop.current < pop.capacity) {
-      startTraining(tc.id, UNIT_TYPE.MALE_FARMER)
+      startTraining(tc.id, UNIT_TYPE.FARMER)
     }
   }
 

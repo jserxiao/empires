@@ -1,0 +1,270 @@
+/* ===== 信息面板 - 左下角 ===== */
+.info-panel {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  width: 280px;
+  max-height: calc(100vh - 120px); /* 不覆盖顶部资源面板和小地图 */
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: linear-gradient(180deg, rgba(20, 15, 10, 0.94), rgba(30, 25, 15, 0.90));
+  border: 1px solid rgba(232, 213, 183, 0.4);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+  z-index: 30;
+  animation: infoPanelIn 0.2s ease-out;
+  pointer-events: auto;
+}
+
+/* 自定义滚动条 */
+.info-panel::-webkit-scrollbar {
+  width: 5px;
+}
+.info-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+.info-panel::-webkit-scrollbar-thumb {
+  background: rgba(232, 213, 183, 0.25);
+  border-radius: 3px;
+}
+.info-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(232, 213, 183, 0.4);
+}
+
+@keyframes infoPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ===== 面板内部区块 ===== */
+.info-section {
+  padding: 12px 14px;
+}
+
+.info-block {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(232, 213, 183, 0.12);
+}
+
+.info-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.info-name {
+  color: #e8d5b7;
+  font-size: 0.95rem;
+  font-weight: 700;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.info-subtitle {
+  color: #aaa;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+/* ===== 徽标 ===== */
+.info-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.info-badge--building {
+  background: rgba(255, 152, 0, 0.25);
+  color: #ffb74d;
+  border: 1px solid rgba(255, 152, 0, 0.4);
+}
+
+/* ===== 血条 ===== */
+.info-hp-bar {
+  height: 10px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 5px;
+  overflow: hidden;
+  margin-bottom: 2px;
+}
+
+.info-hp-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.info-hp-text {
+  color: #888;
+  font-size: 0.7rem;
+  font-family: monospace;
+  margin-bottom: 2px;
+}
+
+/* ===== 进度条 ===== */
+.info-progress-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.info-progress-label {
+  color: #aaa;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  min-width: 52px;
+}
+
+.info-progress-bar {
+  flex: 1;
+  height: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.info-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.15s ease;
+}
+
+.info-progress-text {
+  color: #ccc;
+  font-size: 0.65rem;
+  font-family: monospace;
+  min-width: 30px;
+  text-align: right;
+}
+
+/* ===== 操作按钮 ===== */
+.info-action-btn {
+  display: block;
+  width: 100%;
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid;
+  margin-top: 6px;
+}
+
+.info-action-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.info-action-btn--default {
+  color: #e8d5b7;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(232, 213, 183, 0.25);
+}
+.info-action-btn--default:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(232, 213, 183, 0.5);
+}
+
+.info-action-btn--danger {
+  color: #ef9a9a;
+  background: rgba(244, 67, 54, 0.1);
+  border-color: rgba(244, 67, 54, 0.3);
+}
+.info-action-btn--danger:hover:not(:disabled) {
+  background: rgba(244, 67, 54, 0.25);
+  border-color: rgba(244, 67, 54, 0.5);
+}
+
+/* ===== 训练面板 ===== */
+.info-train-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.info-train-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.info-train-btn {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #a5d6a7;
+  background: rgba(76, 175, 80, 0.12);
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.info-train-btn:hover {
+  background: rgba(76, 175, 80, 0.28);
+  border-color: rgba(76, 175, 80, 0.5);
+}
+
+.info-train-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.info-train-count {
+  color: #81c784;
+  font-size: 0.7rem;
+  font-weight: 700;
+  font-family: monospace;
+  flex-shrink: 0;
+}
+
+/* ===== 建造面板 ===== */
+.info-build-grid {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.info-build-btn {
+  padding: 5px 12px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #e8d5b7;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(232, 213, 183, 0.25);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.info-build-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(232, 213, 183, 0.5);
+}
+.info-build-btn.active {
+  background: rgba(232, 213, 183, 0.2);
+  border-color: #e8d5b7;
+  color: #fff;
+  box-shadow: 0 0 8px rgba(232, 213, 183, 0.3);
+}

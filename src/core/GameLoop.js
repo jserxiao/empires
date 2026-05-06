@@ -107,6 +107,7 @@ function computeEdgeScrollFromExit(x, y) {
 
 export function clearEdgeScroll() { edgeScrollDir = { dx: 0, dy: 0 } }
 export function isEdgeScrolling() { return edgeScrollDir.dx !== 0 || edgeScrollDir.dy !== 0 }
+export function getMousePosition() { return { x: mouseX, y: mouseY } }
 
 function applyEdgeScroll(dt) {
   if (edgeScrollDir.dx === 0 && edgeScrollDir.dy === 0) return

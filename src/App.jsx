@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { subscribe, getState, initMap, setViewport, startTraining } from './core/GameState.js'
+import { subscribe, getState, initMap, setViewport } from './core/GameState.js'
 import { startGameLoop, stopGameLoop, setMousePosition, setMouseLeftCanvas, clearEdgeScroll } from './core/GameLoop.js'
 import { renderGame, renderSelectionBox, initRenderer, clearEntitySprites } from './game/GameRenderer.js'
 import { handleMouseMove, handleMouseDown, handleMouseUp, getTileInfo, enterBuildMode, cancelBuildMode, getBuildMode } from './game/InputHandler.js'
 import { startMapGeneration, cancelMapGeneration } from './game/MapWorker.js'
 import { initPixiApp, loadTextures, destroyPixiApp, isPixiReady } from './core/PixiApp.js'
-import { MAP_CONFIG, BUILDING_DEFS, UNIT_DEFS, FOG_CONFIG } from './core/constants.js'
+import { MAP_CONFIG, FOG_CONFIG } from './core/constants.js'
 import { getFogData } from './systems/FogOfWar.js'
+import InfoPanel from './components/InfoPanel.jsx'
 import './App.css'
 
 const { COLS, ROWS, TILE_SIZE } = MAP_CONFIG
@@ -104,6 +105,19 @@ function App() {
   useEffect(() => {
     if (!mapReady) return
 
+    const isGameCanvas = (e) => {
+      // 忽略来自 UI 面板/按钮的点击，避免建造按钮点击被当作游戏点击处理
+      const el = e.target
+      if (!el) return true
+      // 按钮始终忽略
+      if (el.tagName === 'BUTTON') return false
+      // 在 UI 面板内的点击忽略
+      if (el.closest?.('.info-panel') || el.closest?.('.resource-panel')) return false
+      // 小地图点击忽略
+      if (el.tagName === 'CANVAS' && el !== pixiContainerRef.current?.querySelector('canvas')) return false
+      return true
+    }
+
     const onMouseMove = (e) => {
       setMousePosition(e.clientX, e.clientY)
       const result = handleMouseMove(e)
@@ -112,12 +126,25 @@ function App() {
     }
 
     const onMouseDown = (e) => {
+      if (!isGameCanvas(e)) return
+      const wasBuilding = getBuildMode() !== null
       handleMouseDown(e)
+      const nowBuilding = getBuildMode() !== null
+      // 建造模式结束（放置或取消）时清除面板状态
+      if (wasBuilding && !nowBuilding) {
+        setBuildModeState(null)
+      }
     }
 
     const onMouseUp = (e) => {
+      if (!isGameCanvas(e)) return
+      const wasBuilding = getBuildMode() !== null
       handleMouseUp(e)
       selectionBoxRef.current = null
+      // 建造模式结束（左键点击空白处取消）时清除面板状态
+      if (wasBuilding && getBuildMode() === null) {
+        setBuildModeState(null)
+      }
     }
 
     const onContextMenu = (e) => e.preventDefault()
@@ -181,18 +208,12 @@ function App() {
     setViewport({ x: vpX, y: vpY })
   }, [])
 
-  const onBuildClick = useCallback((type) => {
-    const bm = getBuildMode()
-    if (bm && bm.buildingType === type) { cancelBuildMode(); setBuildModeState(null) }
-    else { enterBuildMode(type); setBuildModeState(type) }
+  const onBuildModeChange = useCallback((type) => {
+    setBuildModeState(type)
   }, [])
-
-  const onTrainClick = useCallback((buildingId, unitType) => { startTraining(buildingId, unitType) }, [])
 
   const resources = gameState?.resources || { food: 0, wood: 0, gold: 0, stone: 0 }
   const population = gameState?.population || { current: 0, capacity: 0 }
-  const selected = gameState?.selectedEntities || []
-  const selectedBuilding = selected.length === 1 && selected[0]?.entityType === 'building' ? selected[0] : null
 
   return (
     <div className="map-container">
@@ -215,13 +236,11 @@ function App() {
             <div className="resource-item stone">🪨 {Math.floor(resources.stone)}</div>
             <div className="resource-item pop">👤 {population.current}/{population.capacity}</div>
           </div>
-          {selected.length > 0 && (
-            <div className="selected-unit-panel">
-              <div className="selected-unit-name">{selected.length === 1 ? selected[0].name : `已选中 ${selected.length} 个单位`}</div>
-              <div className="selected-unit-hp-bar"><div className="selected-unit-hp-fill" style={{ width: `${(selected.reduce((s,u)=>s+u.hp,0)/selected.reduce((s,u)=>s+u.maxHp,0))*100}%` }} /></div>
-              <div className="selected-unit-hp-text">{selected.reduce((s,u)=>s+u.hp,0)} / {selected.reduce((s,u)=>s+u.maxHp,0)}</div>
-            </div>
-          )}
+          <InfoPanel
+            gameState={gameState}
+            buildModeState={buildModeState}
+            onBuildModeChange={onBuildModeChange}
+          />
           <canvas ref={minimapRef} className="minimap" width={200} height={200} onClick={onMinimapClick} />
         </>
       )}

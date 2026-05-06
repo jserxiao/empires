@@ -3,6 +3,7 @@ import {
   startBuilding, removeFromSelection, canAfford as stateCanAfford,
 } from '../core/GameState.js'
 import { commandMove, commandAttack, commandGather, commandBuild } from '../systems/MovementSystem.js'
+import { getMousePosition } from '../core/GameLoop.js'
 import {
   MAP_CONFIG, TEAM, ENTITY_STATE,
   RESOURCE_DEFS, BUILDING_DEFS,
@@ -78,6 +79,11 @@ export function handleMouseUp(e) {
 }
 
 function handleRightClick(e) {
+  // 如果在建造模式，右键取消建造
+  if (buildMode) {
+    buildMode = null
+    return { handled: true, command: 'cancelBuild' }
+  }
   const state = getState()
   const vp = state.viewport
   const tileCol = Math.floor((e.clientX + vp.x) / TILE_SIZE)
@@ -88,13 +94,32 @@ function handleRightClick(e) {
     return ent && ent.entityType === 'unit' && ent.team === TEAM.PLAYER && ent.state !== ENTITY_STATE.DEAD
   })
   if (ids.length === 0) return { handled: true }
+
+  // 检查是否右键点击了己方未完成建筑 → 派农民去建造
+  for (const entity of state.entities.values()) {
+    if (entity.entityType !== 'building' || entity.state === ENTITY_STATE.DEAD) continue
+    if (entity.team !== TEAM.PLAYER) continue
+    if (!isEntityHit(entity, worldX, worldY)) continue
+    if (!entity.isBuilt) {
+      // 右键未完成建筑 → 农民过来建造
+      const gids = ids.filter(id => getEntity(id)?.gatherer)
+      if (gids.length > 0) {
+        commandBuild(gids, entity.id)
+        return { handled: true, command: 'build' }
+      }
+    }
+    // 己方已完成建筑不做特殊处理（继续下面的逻辑）
+    break
+  }
+
+  // 检查敌方/中立实体 → 攻击
   for (const entity of state.entities.values()) {
     if (entity.state === ENTITY_STATE.DEAD || entity.team === TEAM.PLAYER) continue
-    const dx = entity.x - worldX, dy = entity.y - worldY
-    if (Math.sqrt(dx * dx + dy * dy) < (entity.entityType === 'building' ? TILE_SIZE * 1.5 : TILE_SIZE * 0.6)) {
-      commandAttack(ids, entity.id); return { handled: true, command: 'attack' }
-    }
+    if (!isEntityHit(entity, worldX, worldY)) continue
+    commandAttack(ids, entity.id); return { handled: true, command: 'attack' }
   }
+
+  // 检查资源 → 采集
   if (tileCol >= 0 && tileCol < COLS && tileRow >= 0 && tileRow < ROWS) {
     const idx = tileRow * COLS + tileCol
     if (state.resource[idx] && state.resourceAmount[idx] > 0) {
@@ -106,14 +131,34 @@ function handleRightClick(e) {
   return { handled: true, command: 'move' }
 }
 
+/**
+ * 判断世界坐标是否在实体可点击范围内
+ */
+function isEntityHit(entity, worldX, worldY) {
+  if (entity.entityType === 'building') {
+    // 建筑用矩形碰撞（基于 tileX/tileY/size）
+    const bx = entity.tileX * TILE_SIZE
+    const by = entity.tileY * TILE_SIZE
+    const bw = entity.size.w * TILE_SIZE
+    const bh = entity.size.h * TILE_SIZE
+    // 加一点边距方便点击
+    const pad = TILE_SIZE * 0.3
+    return worldX >= bx - pad && worldX <= bx + bw + pad &&
+           worldY >= by - pad && worldY <= by + bh + pad
+  } else {
+    // 单位用圆形碰撞
+    const dx = entity.x - worldX, dy = entity.y - worldY
+    return Math.sqrt(dx * dx + dy * dy) < TILE_SIZE * 0.6
+  }
+}
+
 function handleLeftClick(tileCol, tileRow) {
   const state = getState()
   const worldX = tileCol * TILE_SIZE + TILE_SIZE / 2, worldY = tileRow * TILE_SIZE + TILE_SIZE / 2
   const clicked = []
   for (const entity of state.entities.values()) {
     if (entity.state === ENTITY_STATE.DEAD || entity.team !== TEAM.PLAYER) continue
-    const dx = entity.x - worldX, dy = entity.y - worldY
-    if (Math.sqrt(dx * dx + dy * dy) < (entity.entityType === 'building' ? TILE_SIZE * 1.5 : TILE_SIZE * 0.6)) clicked.push(entity)
+    if (isEntityHit(entity, worldX, worldY)) clicked.push(entity)
   }
   if (clicked.length > 0) {
     const units = clicked.filter(e => e.entityType === 'unit')
@@ -125,7 +170,14 @@ function handleLeftClick(tileCol, tileRow) {
   buildMode = null
 }
 
-export function enterBuildMode(buildingType) { buildMode = { buildingType, previewCol: 0, previewRow: 0, isValid: false } }
+export function enterBuildMode(buildingType) {
+  const state = getState()
+  // 用当前鼠标位置初始化预览位置
+  const mp = getMousePosition()
+  const col = Math.floor((mp.x + state.viewport.x) / TILE_SIZE)
+  const row = Math.floor((mp.y + state.viewport.y) / TILE_SIZE)
+  buildMode = { buildingType, previewCol: col, previewRow: row, isValid: checkBuildLocation(col, row, buildingType) }
+}
 export function cancelBuildMode() { buildMode = null }
 export function getBuildMode() { return buildMode }
 
@@ -140,6 +192,12 @@ function checkBuildLocation(col, row, buildingType) {
   }
   for (const b of state.buildings.values()) {
     if (col < b.tileX + b.size.w && col + def.size.w > b.tileX && row < b.tileY + b.size.h && row + def.size.h > b.tileY) return false
+  }
+  // 检查范围内是否有单位
+  for (const e of state.entities.values()) {
+    if (e.entityType !== 'unit' || e.state === ENTITY_STATE.DEAD) continue
+    const uc = Math.floor(e.x / TILE_SIZE), ur = Math.floor(e.y / TILE_SIZE)
+    if (uc >= col && uc < col + def.size.w && ur >= row && ur < row + def.size.h) return false
   }
   return stateCanAfford(TEAM.PLAYER, def.cost)
 }
