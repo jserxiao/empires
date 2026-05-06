@@ -10,7 +10,7 @@
 
 import {
   MAP_CONFIG, TERRAIN, ROAD, ENTITY_STATE, TEAM,
-  RESOURCE_TYPE, UNIT_DEFS, BUILDING_DEFS, UNIT_TYPE, BUILDING_TYPE,
+  RESOURCE_TYPE, RESOURCE_DEFS, UNIT_DEFS, BUILDING_DEFS, UNIT_TYPE, BUILDING_TYPE,
 } from './constants.js'
 import { initFog, resetFog } from '../systems/FogOfWar.js'
 
@@ -70,6 +70,9 @@ const state = {
 
   // 选中单位
   selectedIds: [],
+
+  // 选中资源瓦片 { tileX, tileY, key, amount, maxAmount } 或 null
+  selectedResource: null,
 
   // 视口
   viewport: { x: 0, y: 0 },
@@ -208,7 +211,9 @@ export function createUnit(unitType, worldX, worldY, team = TEAM.PLAYER) {
     gatherTargetIdx: -1,   // tileIdx
     gatherCooldown: 0,
     carrying: null,        // { type, amount }
-    carryAmount: 10,
+    carryAmount: 2,        // 每次采集动作获取的资源量
+    maxCarry: 20,          // 最大负重
+    gatherResourceType: null, // 正在采集的资源类型（food/wood/gold/stone）
 
     // 建造
     buildTargetId: null,
@@ -329,6 +334,7 @@ export function getBuildingsOfTeam(team) {
 // ===== 选中管理 =====
 export function setSelected(ids) {
   state.selectedIds = ids
+  state.selectedResource = null
   scheduleNotify()
 }
 
@@ -346,7 +352,43 @@ export function removeFromSelection(id) {
 
 export function clearSelection() {
   state.selectedIds = []
+  state.selectedResource = null
   scheduleNotify()
+}
+
+export function setSelectedResource(tileX, tileY) {
+  if (tileX < 0 || tileX >= COLS || tileY < 0 || tileY >= ROWS) {
+    state.selectedResource = null
+    scheduleNotify()
+    return
+  }
+  const idx = tileY * COLS + tileX
+  const key = state.resource[idx]
+  if (!key || state.resourceAmount[idx] <= 0) {
+    state.selectedResource = null
+    scheduleNotify()
+    return
+  }
+  const def = RESOURCE_DEFS[key]
+  state.selectedResource = {
+    tileX,
+    tileY,
+    key,
+    amount: state.resourceAmount[idx],
+    maxAmount: def?.amount || 0,
+  }
+  state.selectedIds = []
+  scheduleNotify()
+}
+
+export function clearSelectedResourceIfDepleted() {
+  const sr = state.selectedResource
+  if (!sr) return
+  const idx = sr.tileY * COLS + sr.tileX
+  if (!state.resource[idx] || state.resourceAmount[idx] <= 0) {
+    state.selectedResource = null
+    scheduleNotify()
+  }
 }
 
 export function getSelectedEntities() {
@@ -478,6 +520,9 @@ export function isTileWalkable(x, y, excludeBuildingId) {
       return false
     }
   }
+  // 检查资源障碍（树、浆果、矿等不可通行）
+  const idx = tileIdx(x, y)
+  if (state.resource[idx]) return false
   return true
 }
 
@@ -611,6 +656,16 @@ export function subscribe(fn) {
 }
 
 export function getSnapshot() {
+  // 更新选中资源的实时数量
+  const sr = state.selectedResource
+  let liveSelectedResource = null
+  if (sr) {
+    const idx = sr.tileY * COLS + sr.tileX
+    if (state.resource[idx] && state.resourceAmount[idx] > 0) {
+      liveSelectedResource = { ...sr, amount: state.resourceAmount[idx] }
+    }
+  }
+
   return {
     mapReady: state.mapReady,
     viewport: { ...state.viewport },
@@ -618,6 +673,7 @@ export function getSnapshot() {
     population: { ...state.population[TEAM.PLAYER] },
     selectedIds: [...state.selectedIds],
     selectedEntities: getSelectedEntities(),
+    selectedResource: liveSelectedResource,
     trainingQueues: new Map(state.trainingQueues),
   }
 }
@@ -640,6 +696,7 @@ export function resetGameState() {
   state.buildings.clear()
   state.trainingQueues.clear()
   state.selectedIds = []
+  state.selectedResource = null
   state.mapReady = false
   state.resources[TEAM.PLAYER] = { food: 200, wood: 200, gold: 50, stone: 100 }
   state.resources[TEAM.ENEMY] = { food: 200, wood: 200, gold: 50, stone: 100 }

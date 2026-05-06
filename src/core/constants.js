@@ -123,7 +123,7 @@ export const TEAM = {
 export const RESOURCE_DEFS = {
   pine_tree:     { name: '尖木树',  image: '/PNG/Default size/Environment/尖木树.png',   type: RESOURCE_TYPE.WOOD,  amount: 100, gatherRate: 0.5 },
   round_tree:    { name: '圆木树',  image: '/PNG/Default size/Environment/圆木树.png',   type: RESOURCE_TYPE.WOOD,  amount: 100, gatherRate: 0.5 },
-  berry:         { name: '浆果',    image: '/PNG/Default size/Environment/浆果.png',     type: RESOURCE_TYPE.FOOD,  amount: 125, gatherRate: 0.35 },
+  berry:         { name: '浆果',    images: ['/PNG/Default size/Environment/浆果.png', '/PNG/Default size/Environment/浆果.png', '/PNG/Default size/Environment/浆果.png', '/PNG/Default size/Environment/浆果.png'], type: RESOURCE_TYPE.FOOD,  amount: 125, gatherRate: 0.35 },
   gold_mine:     { name: '金矿',    image: '/PNG/Default size/Environment/金矿.png',     type: RESOURCE_TYPE.GOLD,  amount: 800, gatherRate: 0.3 },
   big_gold_mine: { name: '大金矿',  image: '/PNG/Default size/Environment/大金矿.png',   type: RESOURCE_TYPE.GOLD,  amount: 2000, gatherRate: 0.3 },
   gold_pile:     { name: '金矿堆',  images: ['/PNG/Default size/Environment/金矿.png', '/PNG/Default size/Environment/大金矿.png'], type: RESOURCE_TYPE.GOLD,  amount: 1500, gatherRate: 0.3 },

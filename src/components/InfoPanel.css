@@ -91,6 +91,11 @@
   color: #ffb74d;
   border: 1px solid rgba(255, 152, 0, 0.4);
 }
+.info-badge--resource {
+  background: rgba(76, 175, 80, 0.2);
+  color: #81c784;
+  border: 1px solid rgba(76, 175, 80, 0.35);
+}
 
 /* ===== 血条 ===== */
 .info-hp-bar {
@@ -267,4 +272,68 @@
   border-color: #e8d5b7;
   color: #fff;
   box-shadow: 0 0 8px rgba(232, 213, 183, 0.3);
+}
+
+/* ===== 携带状态 ===== */
+.info-carry-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.info-carry-type {
+  color: #e8d5b7;
+  font-size: 0.72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.info-carry-amount {
+  color: #aaa;
+  font-size: 0.65rem;
+  font-family: monospace;
+  white-space: nowrap;
+}
+
+.info-carry-empty {
+  color: #666;
+  font-size: 0.72rem;
+  font-style: italic;
+}
+
+/* ===== 资源信息面板 ===== */
+.info-resource-amount-row {
+  margin-bottom: 6px;
+}
+
+.info-resource-amount {
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-family: monospace;
+}
+
+.info-resource-max {
+  color: #777;
+  font-size: 0.85rem;
+  font-family: monospace;
+}
+
+.info-resource-bar {
+  height: 8px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.info-resource-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.info-resource-detail {
+  color: #bbb;
+  font-size: 0.78rem;
+  font-family: monospace;
 }

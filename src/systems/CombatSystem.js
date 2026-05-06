@@ -14,10 +14,11 @@ import { findPath, pathToWorldPath, computePathLength } from '../core/Pathfindin
 const { COLS, ROWS, TILE_SIZE } = MAP_CONFIG
 
 /**
- * 创建通行检查函数 - 所有建筑（含建造中）都是障碍物
+ * 创建通行检查函数 - 所有建筑（含建造中）和资源堆都是障碍物
  */
 function createWalkableCheck(state, excludeBuildingId) {
   return (x, y) => {
+    // 检查建筑障碍
     for (const b of state.buildings.values()) {
       if (b.id === excludeBuildingId) continue
       if (x >= b.tileX && x < b.tileX + b.size.w &&
@@ -25,6 +26,9 @@ function createWalkableCheck(state, excludeBuildingId) {
         return false
       }
     }
+    // 检查资源障碍（树、浆果、矿等不可通行）
+    const idx = y * COLS + x
+    if (state.resource[idx]) return false
     return true
   }
 }

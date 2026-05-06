@@ -24,12 +24,14 @@ const EASE_DISTANCE = TILE_SIZE * 1.5
  * @param {number} targetRow - 目标行
  */
 /**
- * 创建通行检查函数 - 所有建筑（含建造中）都是障碍物
+ * 创建通行检查函数 - 所有建筑（含建造中）和资源堆都是障碍物
  * @param {object} state - 游戏状态
  * @param {number} [excludeBuildingId] - 排除的建筑ID（如建造目标，允许走近它）
+ * @param {number} [excludeResourceIdx] - 排除的资源索引（如采集目标，允许走近它）
  */
-function createWalkableCheck(state, excludeBuildingId) {
+function createWalkableCheck(state, excludeBuildingId, excludeResourceIdx) {
   return (x, y) => {
+    // 检查建筑障碍
     for (const b of state.buildings.values()) {
       if (b.id === excludeBuildingId) continue
       if (x >= b.tileX && x < b.tileX + b.size.w &&
@@ -37,6 +39,9 @@ function createWalkableCheck(state, excludeBuildingId) {
         return false
       }
     }
+    // 检查资源障碍（树、浆果、矿等不可通行）
+    const idx = y * COLS + x
+    if (idx !== excludeResourceIdx && state.resource[idx]) return false
     return true
   }
 }
@@ -76,6 +81,7 @@ export function commandMove(unitIds, targetCol, targetRow) {
     entity.state = ENTITY_STATE.MOVING
     entity.targetId = null
     entity.gatherTargetIdx = -1
+    entity.gatherResourceType = null
     entity.buildTargetId = null
 
     // 设置动画
@@ -139,6 +145,7 @@ export function commandGather(unitIds, tileX, tileY) {
     if (entity.state === ENTITY_STATE.DEAD) continue
 
     entity.gatherTargetIdx = tileY * COLS + tileX
+    entity.gatherResourceType = resource.def.type  // 记录正在采集的资源类型
     entity.state = ENTITY_STATE.MOVING
     entity.animState = 'walk'
     entity.targetId = null
@@ -148,7 +155,9 @@ export function commandGather(unitIds, tileX, tileY) {
     const startCol = Math.floor(entity.x / TILE_SIZE)
     const startRow = Math.floor(entity.y / TILE_SIZE)
 
-    const walkableCheck = createWalkableCheck(state)
+    // 采集目标排除资源障碍，让农民能走到资源旁边
+    const excludeResourceIdx = tileY * COLS + tileX
+    const walkableCheck = createWalkableCheck(state, undefined, excludeResourceIdx)
 
     const gridPath = findPath(state.terrain, startCol, startRow, tileX, tileY, walkableCheck)
     if (gridPath.length >= 2) {
@@ -278,6 +287,10 @@ function onPathComplete(entity) {
     // 攻击目标 → CombatSystem 接管
     entity.state = ENTITY_STATE.ATTACKING
     entity.animState = 'attack'
+  } else if (entity.carrying) {
+    // 携带资源返回（优先级高于采集，因为负重满了需要先提交）
+    entity.state = ENTITY_STATE.RETURNING
+    entity.animState = 'walk'
   } else if (entity.gatherTargetIdx >= 0) {
     // 采集目标
     entity.state = ENTITY_STATE.GATHERING
@@ -287,10 +300,6 @@ function onPathComplete(entity) {
     // 建造目标
     entity.state = ENTITY_STATE.BUILDING
     entity.animState = 'build'
-  } else if (entity.carrying) {
-    // 携带资源返回
-    entity.state = ENTITY_STATE.RETURNING
-    entity.animState = 'walk'
   } else {
     entity.state = ENTITY_STATE.IDLE
     entity.animState = 'idle'

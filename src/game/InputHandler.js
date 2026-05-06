@@ -1,6 +1,7 @@
 import {
   getState, setSelected, clearSelection, getEntity,
   startBuilding, removeFromSelection, canAfford as stateCanAfford,
+  setSelectedResource,
 } from '../core/GameState.js'
 import { commandMove, commandAttack, commandGather, commandBuild } from '../systems/MovementSystem.js'
 import { getMousePosition } from '../core/GameLoop.js'
@@ -16,6 +17,83 @@ let dragStart = null
 const BOX_THRESHOLD = 5
 let buildMode = null
 
+// ===== 鼠标光标状态 =====
+let currentCursor = 'default'
+
+/**
+ * 根据鼠标位置和选中单位更新光标样式
+ * 选中了单位时：右键点击目标区域变为手型
+ */
+export function updateCursor(clientX, clientY) {
+  const state = getState()
+  if (!state.mapReady || buildMode) {
+    if (buildMode) { setCursor('crosshair') } else { setCursor('default') }
+    return
+  }
+
+  // 没有选中单位 → 默认光标
+  const selectedUnits = state.selectedIds.filter(id => {
+    const ent = getEntity(id)
+    return ent && ent.entityType === 'unit' && ent.team === TEAM.PLAYER && ent.state !== ENTITY_STATE.DEAD
+  })
+  if (selectedUnits.length === 0) {
+    setCursor('default')
+    return
+  }
+
+  const vp = state.viewport
+  const worldX = clientX + vp.x
+  const worldY = clientY + vp.y
+  const tileCol = Math.floor(worldX / TILE_SIZE)
+  const tileRow = Math.floor(worldY / TILE_SIZE)
+
+  // 检查是否悬停在敌方/中立实体上 → 攻击光标（手型）
+  for (const entity of state.entities.values()) {
+    if (entity.state === ENTITY_STATE.DEAD || entity.team === TEAM.PLAYER) continue
+    if (isEntityHit(entity, worldX, worldY)) {
+      setCursor('pointer')
+      return
+    }
+  }
+
+  // 检查是否悬停在己方未完成建筑上 → 建造光标（手型）
+  for (const entity of state.entities.values()) {
+    if (entity.entityType !== 'building' || entity.state === ENTITY_STATE.DEAD) continue
+    if (entity.team !== TEAM.PLAYER) continue
+    if (!isEntityHit(entity, worldX, worldY)) continue
+    if (!entity.isBuilt) {
+      const hasGatherers = selectedUnits.some(id => getEntity(id)?.gatherer)
+      if (hasGatherers) {
+        setCursor('pointer')
+        return
+      }
+    }
+    break
+  }
+
+  // 检查是否悬停在资源上 → 采集光标（手型）
+  if (tileCol >= 0 && tileCol < COLS && tileRow >= 0 && tileRow < ROWS) {
+    const idx = tileRow * COLS + tileCol
+    if (state.resource[idx] && state.resourceAmount[idx] > 0) {
+      const hasGatherers = selectedUnits.some(id => getEntity(id)?.gatherer)
+      if (hasGatherers) {
+        setCursor('pointer')
+        return
+      }
+    }
+  }
+
+  // 选中了单位，悬停在空地 → 移动光标（手型）
+  setCursor('pointer')
+}
+
+function setCursor(type) {
+  if (currentCursor !== type) {
+    currentCursor = type
+    document.body.style.cursor = type
+  }
+}
+
 export function handleMouseMove(e) {
   if (dragStart && !isDragging) {
     const dx = e.clientX - dragStart.clientX
@@ -29,6 +107,12 @@ export function handleMouseMove(e) {
     buildMode.previewCol = col
     buildMode.previewRow = row
     buildMode.isValid = checkBuildLocation(col, row, buildMode.buildingType)
+  }
+  // 更新鼠标光标
+  if (!isDragging) {
+    updateCursor(e.clientX, e.clientY)
+  } else {
+    setCursor('crosshair')
   }
   return isDragging && dragStart ? {
     selectionBox: { startX: dragStart.clientX, startY: dragStart.clientY, endX: e.clientX, endY: e.clientY }
@@ -166,7 +250,19 @@ function handleLeftClick(tileCol, tileRow) {
       if (state.selectedIds.includes(units[0].id)) removeFromSelection(units[0].id)
       else setSelected([units[0].id])
     } else setSelected([clicked[0].id])
-  } else clearSelection()
+  } else {
+    // 没有点击到实体，检查是否点击了资源
+    if (tileCol >= 0 && tileCol < COLS && tileRow >= 0 && tileRow < ROWS) {
+      const idx = tileRow * COLS + tileCol
+      if (state.resource[idx] && state.resourceAmount[idx] > 0) {
+        setSelectedResource(tileCol, tileRow)
+      } else {
+        clearSelection()
+      }
+    } else {
+      clearSelection()
+    }
+  }
   buildMode = null
 }
 

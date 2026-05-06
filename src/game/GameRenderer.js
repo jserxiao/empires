@@ -93,16 +93,19 @@ export function renderGame(alpha, projectiles) {
     }
   }
 
-  // 5. 黑雾
+  // 5. 选中资源高亮
+  renderSelectedResource(state, vp)
+
+  // 6. 黑雾
   renderFogLayer(vp)
 
-  // 6. 弹道
+  // 7. 弹道
   renderProjectiles(projectiles)
 
-  // 7. 建造预览
+  // 8. 建造预览
   renderBuildPreview()
 
-  // 8. 手动渲染
+  // 9. 手动渲染
   renderFrame()
 }
 
@@ -167,6 +170,38 @@ function renderStaticLayer(vp) {
     const cacheSprite = tileLayer.children[0]
     cacheSprite.position.set(csCol * TILE_SIZE, csRow * TILE_SIZE)
   }
+}
+
+// ===== 选中资源高亮 =====
+let selectedResourceGraphics = null
+
+function renderSelectedResource(state, vp) {
+  const { entityLayer } = getLayers()
+  const sr = state.selectedResource
+
+  if (!sr) {
+    if (selectedResourceGraphics) {
+      selectedResourceGraphics.visible = false
+    }
+    return
+  }
+
+  if (!selectedResourceGraphics) {
+    selectedResourceGraphics = new Graphics()
+    selectedResourceGraphics.label = 'selectedResource'
+    entityLayer.addChild(selectedResourceGraphics)
+  }
+
+  selectedResourceGraphics.clear()
+  selectedResourceGraphics.visible = true
+
+  const px = sr.tileX * TILE_SIZE
+  const py = sr.tileY * TILE_SIZE
+
+  // 选中框 - 金色闪烁边框
+  const pulse = 0.6 + 0.4 * Math.sin(Date.now() / 300)
+  selectedResourceGraphics.rect(px, py, TILE_SIZE, TILE_SIZE)
+  selectedResourceGraphics.stroke({ color: 0xffd700, alpha: pulse, width: 2 })
 }
 
 // ===== 黑雾层 =====
@@ -268,22 +303,38 @@ function renderStaticTileToContainer(container, mapData, col, row, px, py, size)
   if (resourceKey) {
     const def = RESOURCE_DEFS[resourceKey]
     if (def) {
-      const isTree = resourceKey === 'pine_tree'
-      // 森林地形已有树底图，树资源渲染更小；草地树稍小；其他资源保持原比例
+      const isTree = resourceKey === 'pine_tree' || resourceKey === 'round_tree'
+      // 森林地形已有树底图，树资源渲染较小；草地树正常大小；其他资源保持原比例
       let resScale = 0.55
-      if (isTree && terrain === TERRAIN.FOREST) resScale = 0.30
-      else if (isTree && terrain === TERRAIN.GRASS) resScale = 0.38
+      if (isTree && terrain === TERRAIN.FOREST) resScale = 0.42
+      else if (isTree && terrain === TERRAIN.GRASS) resScale = 0.55
       if (def.images && def.images.length > 0) {
         renderMultiResToContainer(container, def.images, px, py, size, isTree, terrain)
       } else if (def.image) {
         const img = getTexture(def.image)
         if (img !== Texture.EMPTY) {
-          const s = size * resScale, o = (size - s) / 2
-          const sprite = new Sprite(img)
-          sprite.position.set(px + o, py + o)
-          sprite.width = s
-          sprite.height = s
-          container.addChild(sprite)
+          // 树木保持原始宽高比，避免宽度被拉伸
+          if (isTree) {
+            const maxH = size * resScale
+            const origW = img.width, origH = img.height
+            const scale = maxH / Math.max(origH, 1)
+            const drawW = origW * scale
+            const drawH = maxH
+            const ox = (size - drawW) / 2
+            const oy = size - drawH // 底部对齐
+            const sprite = new Sprite(img)
+            sprite.position.set(px + ox, py + oy)
+            sprite.width = drawW
+            sprite.height = drawH
+            container.addChild(sprite)
+          } else {
+            const s = size * resScale, o = (size - s) / 2
+            const sprite = new Sprite(img)
+            sprite.position.set(px + o, py + o)
+            sprite.width = s
+            sprite.height = s
+            container.addChild(sprite)
+          }
         }
       }
     }
@@ -291,9 +342,9 @@ function renderStaticTileToContainer(container, mapData, col, row, px, py, size)
 }
 
 function renderMultiResToContainer(container, paths, px, py, size, isTree, terrain) {
-  // 树资源在森林地形缩小，草地地形稍缩小
-  const baseScale = isTree && terrain === TERRAIN.FOREST ? 0.55
-    : isTree && terrain === TERRAIN.GRASS ? 0.7
+  // 树资源在森林地形已有树底图，整体区域稍缩小；草地地形正常大小
+  const baseScale = isTree && terrain === TERRAIN.FOREST ? 0.75
+    : isTree && terrain === TERRAIN.GRASS ? 1.0
     : 1.0
   const pad = size * 0.04, area = (size - pad * 2) * baseScale
   const areaOffset = (size - pad * 2 - area) / 2
@@ -494,7 +545,7 @@ function updateUnitSprite(data, u, isSelected, vp) {
     data.hpBar.visible = false
   }
 
-  // 携带资源指示器
+  // 携带资源指示器 - 显示负重进度条（位于血条下方，避免重叠）
   if (u.carrying) {
     if (!data.carryIndicator) {
       const g = new Graphics()
@@ -503,9 +554,18 @@ function updateUnitSprite(data, u, isSelected, vp) {
       data.carryIndicator = g
     }
     const colors = { food: 0xe74c3c, wood: 0x8d6e63, gold: 0xffd700, stone: 0x9e9e9e }
+    const barW = 16, barH = 3
+    const barX = spriteOffsetX + uw / 2 - barW / 2
+    // 血条在 spriteOffsetY - 8，高度4px；负重条在血条下方2px处
+    const hpBarBottom = spriteOffsetY - 8 + 4 + 2
+    const barY = isSelected ? hpBarBottom : spriteOffsetY - 8
+    const maxC = u.maxCarry || 20
+    const ratio = Math.min(1, u.carrying.amount / maxC)
     data.carryIndicator.clear()
-    data.carryIndicator.rect(spriteOffsetX + uw / 2 - 4, spriteOffsetY - 10, 8, 8)
-    data.carryIndicator.fill({ color: colors[u.carrying.type] || 0xffffff })
+    // 背景
+    data.carryIndicator.rect(barX - 0.5, barY - 0.5, barW + 1, barH + 1).fill({ color: 0x000000, alpha: 0.6 })
+    // 填充
+    data.carryIndicator.rect(barX, barY, barW * ratio, barH).fill({ color: colors[u.carrying.type] || 0xffffff })
     data.carryIndicator.visible = true
   } else if (data.carryIndicator) {
     data.carryIndicator.visible = false
@@ -719,6 +779,9 @@ export function clearEntitySprites() {
 
   // 重置黑雾 Graphics
   fogGraphics = null
+
+  // 重置选中资源高亮
+  selectedResourceGraphics = null
 
   // 重置建造预览
   buildPreviewContainer = null

@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { BUILDING_DEFS, UNIT_DEFS } from '../core/constants'
+import { BUILDING_DEFS, UNIT_DEFS, RESOURCE_TYPE, RESOURCE_DEFS } from '../core/constants'
 import { cancelBuild, demolishBuilding, startTraining } from '../core/GameState'
 import { enterBuildMode, cancelBuildMode, getBuildMode } from '../game/InputHandler'
 import './InfoPanel.css'
@@ -41,6 +41,62 @@ function ActionButton({ label, onClick, variant = 'default', disabled = false })
     >
       {label}
     </button>
+  )
+}
+
+const RESOURCE_NAMES = {
+  [RESOURCE_TYPE.FOOD]: '食物',
+  [RESOURCE_TYPE.WOOD]: '木材',
+  [RESOURCE_TYPE.GOLD]: '黄金',
+  [RESOURCE_TYPE.STONE]: '石头',
+}
+
+const RESOURCE_COLORS = {
+  [RESOURCE_TYPE.FOOD]: '#e74c3c',
+  [RESOURCE_TYPE.WOOD]: '#8d6e63',
+  [RESOURCE_TYPE.GOLD]: '#ffd700',
+  [RESOURCE_TYPE.STONE]: '#9e9e9e',
+}
+
+// ===== 资源信息面板 =====
+
+function ResourceInfo({ resource }) {
+  const def = RESOURCE_DEFS[resource.key]
+  if (!def) return null
+
+  const resourceName = def.name || resource.key
+  const resourceType = def.type
+  const typeName = RESOURCE_NAMES[resourceType] || resourceType
+  const amount = Math.floor(resource.amount)
+  const maxAmount = Math.floor(resource.maxAmount || def.amount || 0)
+  const ratio = maxAmount > 0 ? Math.min(1, amount / maxAmount) : 0
+  const color = RESOURCE_COLORS[resourceType] || '#aaa'
+
+  return (
+    <div className="info-section">
+      <div className="info-header">
+        <span className="info-name">{resourceName}</span>
+        <span className="info-badge info-badge--resource">{typeName}</span>
+      </div>
+
+      <div className="info-block">
+        <div className="info-subtitle">剩余储量</div>
+        <div className="info-resource-amount-row">
+          <span className="info-resource-amount" style={{ color }}>{amount}</span>
+          <span className="info-resource-max"> / {maxAmount}</span>
+        </div>
+        <div className="info-resource-bar">
+          <div className="info-resource-bar-fill" style={{ width: `${ratio * 100}%`, background: color }} />
+        </div>
+      </div>
+
+      {def.gatherRate && (
+        <div className="info-block">
+          <div className="info-subtitle">采集速率</div>
+          <div className="info-resource-detail">{def.gatherRate} / 秒</div>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -165,6 +221,10 @@ function UnitInfo({ unit, buildModeState, onBuildModeChange }) {
     }
   }
 
+  const maxCarry = unit.maxCarry || 20
+  const carryingAmount = unit.carrying?.amount || 0
+  const carryRatio = maxCarry > 0 ? Math.min(1, carryingAmount / maxCarry) : 0
+
   return (
     <div className="info-section">
       <div className="info-header">
@@ -173,6 +233,22 @@ function UnitInfo({ unit, buildModeState, onBuildModeChange }) {
 
       <HpBar hp={unit.hp} maxHp={unit.maxHp} />
       <div className="info-hp-text">{unit.hp} / {unit.maxHp}</div>
+
+      {/* 农民携带状态 */}
+      {unit.gatherer && (
+        <div className="info-block">
+          <div className="info-subtitle">携带状态</div>
+          {unit.carrying ? (
+            <div className="info-carry-info">
+              <span className="info-carry-type">{RESOURCE_NAMES[unit.carrying.type] || unit.carrying.type}</span>
+              <ProgressBar progress={carryingAmount} max={maxCarry} color="#4caf50" width="80px" />
+              <span className="info-carry-amount">{carryingAmount}/{maxCarry}</span>
+            </div>
+          ) : (
+            <div className="info-carry-empty">未携带资源</div>
+          )}
+        </div>
+      )}
 
       {/* 农民建造面板 */}
       {unit.gatherer && (
@@ -221,10 +297,22 @@ function MultiSelectInfo({ entities }) {
 
 export default function InfoPanel({ gameState, buildModeState, onBuildModeChange }) {
   const selected = gameState?.selectedEntities || []
-  if (selected.length === 0) return null
+  const selectedResource = gameState?.selectedResource || null
+
+  // 没有选中任何东西
+  if (selected.length === 0 && !selectedResource) return null
 
   const handleActionDone = () => {
     // 取消后不需要额外处理，状态变更会通过 subscribe 自动更新
+  }
+
+  // 选中资源
+  if (selectedResource) {
+    return (
+      <div className="info-panel">
+        <ResourceInfo resource={selectedResource} />
+      </div>
+    )
   }
 
   // 单选建筑
