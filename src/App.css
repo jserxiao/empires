@@ -22,7 +22,15 @@ html, body, #root {
   overflow: hidden;
 }
 
-.map-canvas {
+.pixi-container {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.pixi-container canvas {
   display: block;
   image-rendering: pixelated;
   user-select: none;
@@ -177,3 +185,84 @@ html, body, #root {
   font-family: monospace;
   white-space: nowrap;
 }
+
+/* ===== 资源面板 ===== */
+.resource-panel {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  display: flex;
+  gap: 12px;
+  padding: 8px 16px;
+  background: linear-gradient(180deg, rgba(20, 15, 10, 0.9), rgba(30, 25, 15, 0.8));
+  border: 1px solid rgba(232, 213, 183, 0.3);
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+  z-index: 25;
+  pointer-events: none;
+}
+.resource-item { font-size: 0.85rem; font-weight: 600; white-space: nowrap; }
+.resource-item.food { color: #e74c3c; }
+.resource-item.wood { color: #8d6e63; }
+.resource-item.gold { color: #ffd700; }
+.resource-item.stone { color: #9e9e9e; }
+.resource-item.pop { color: #64b5f6; }
+
+/* ===== 建造面板 ===== */
+.build-panel {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  background: linear-gradient(180deg, rgba(20, 15, 10, 0.9), rgba(30, 25, 15, 0.85));
+  border: 1px solid rgba(232, 213, 183, 0.3);
+  border-radius: 8px;
+  box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.4);
+  z-index: 25;
+}
+.build-btn {
+  padding: 6px 14px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #e8d5b7;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(232, 213, 183, 0.25);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.build-btn:hover { background: rgba(255, 255, 255, 0.15); border-color: rgba(232, 213, 183, 0.5); }
+.build-btn.active { background: rgba(232, 213, 183, 0.2); border-color: #e8d5b7; color: #fff; box-shadow: 0 0 8px rgba(232, 213, 183, 0.3); }
+
+/* ===== 训练面板 ===== */
+.train-panel {
+  position: absolute;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  background: linear-gradient(180deg, rgba(20, 15, 10, 0.9), rgba(30, 25, 15, 0.85));
+  border: 1px solid rgba(232, 213, 183, 0.3);
+  border-radius: 8px;
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.4);
+  z-index: 25;
+}
+.train-btn {
+  padding: 6px 14px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #e8d5b7;
+  background: rgba(76, 175, 80, 0.15);
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.train-btn:hover { background: rgba(76, 175, 80, 0.3); border-color: rgba(76, 175, 80, 0.5); }

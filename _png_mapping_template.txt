@@ -1,0 +1,55 @@
+=== 游戏中使用的所有 PNG 图片汇总 ===
+请填写每个 PNG 对应的 SVG 网格位置（第几行第几列）
+格式: 行,列  例如: 3,1
+
+--- 地形瓦片 (TILE) ---
+/PNG/Default size/Tile/深水.png          → 第3行第1列  (当前映射: 第1行第6列 草地)
+/PNG/Default size/Tile/浅水.png          → 第3行第4列  (当前映射: 第1行第8列 草地)
+/PNG/Default size/Tile/土地.png          → 第2行第1列  (当前映射: 第1行第3列 沙地)
+/PNG/Default size/Tile/空地.png          → 第1行第3列  (当前映射: 第2行第7列 草地)
+/PNG/Default size/Tile/草地.png          → 第1行第1列  (当前映射: 第1行第1列 草地)
+/PNG/Default size/Tile/三棵树草地.png     → 第5行第3列  (当前映射: 第1行第5列 草地)
+/PNG/Default size/Tile/medievalTile_58.png → 第1行第2列  (当前映射: 第1行第6列 草地)
+
+--- 道路瓦片 (ROAD) ---
+/PNG/Default size/Tile/左右单路.png       → 第1行第6列  (当前映射: 第3行第1列 浅水)
+/PNG/Default size/Tile/上下单路.png       → 第1行第5列  (当前映射: 第3行第2列 浅水)
+/PNG/Default size/Tile/十字路.png         → 第1行第7列  (当前映射: 第3行第3列 深水)
+/PNG/Default size/Tile/无上丁字路.png     → 第1行第8列  (当前映射: 第3行第4列 深水)
+/PNG/Default size/Tile/无下丁字路.png     → 第1行第9列  (当前映射: 第3行第5列 草地)
+/PNG/Default size/Tile/无左丁字路.png     → 第2行第9列  (当前映射: 第3行第6列 草地)
+/PNG/Default size/Tile/无右丁字路.png     → 第2行第8列  (当前映射: 第3行第7列 草地)
+/PNG/Default size/Tile/左上角弯路.png     → 第2行第5列  (当前映射: 第4行第1列 草地)
+/PNG/Default size/Tile/右上角弯路.png     → 第2行第6列  (当前映射: 第4行第2列 草地)
+/PNG/Default size/Tile/左下角弯路.png     → 第3行第5列  (当前映射: 第4行第3列 草地)
+/PNG/Default size/Tile/右下角弯路.png     → 第3行第6列  (当前映射: 第4行第4列 草地)
+
+--- 环境/资源 (ENVIRONMENT) ---
+/PNG/Default size/Environment/尖木树.png       → 第4行第8列
+/PNG/Default size/Environment/圆木树.png       → 第4行第6列
+/PNG/Default size/Environment/浆果.png         → 第6行第11列
+/PNG/Default size/Environment/金矿.png         → 第6行第9列
+/PNG/Default size/Environment/大金矿.png       → 第6行第10列
+/PNG/Default size/Environment/一个石块.png     → 第5行第6列
+/PNG/Default size/Environment/两个石块.png     → 第5行第7列
+/PNG/Default size/Environment/三个石块.png     → 第5行第8列
+/PNG/Default size/Environment/土块.png         → 第6行第6列
+/PNG/Default size/Environment/两个土块.png     → 第6行第7列
+/PNG/Default size/Environment/三个土块.png     → 第6行第8列
+
+--- 建筑 (STRUCTURE) ---
+/PNG/Default size/Structure/城镇中心上.png     → 第1行第17列
+/PNG/Default size/Structure/城镇中心下.png     → 第2行第17列
+
+--- 单位 (UNIT) ---
+/PNG/Default size/Unit/男农夫.png             → 第5行第13列
+/PNG/Default size/Unit/女农夫.png             → 第5行第12列
+
+=== 参考: SVG 网格内容 ===
+第1行: 9草地 10草地 11沙地 12沙地 24草地 38草地 25草地 26草地 27草地 | 57黑金 58黑金 59黑金 60黑金 61黑金 | 116绿树 118灰红 121灰红 123绿树
+第2行: 7道路 8道路 13灰石 14灰石 30草地 31草地 34草地 28草地 29草地 | 66黑金 65黑金 64黑金 63黑金 62黑金 | 117绿树 119灰棕 120灰棕 122灰棕
+第3行: 55浅水 54浅水 52深水 53深水 32草地 33草地 35草地 36草地 37草地 | 67黑金 68黑金 69黑金 70黑金 71黑金 | 114灰棕 115大树 125绿树 124棕米
+第4行: 39草地 6草地 15草地 40草地 | 43绿黑 44绿黑 46黑 45绿黑 51黑 72棕木 56灰石 | 90蓝U 91蓝U 87蓝U 88蓝U 92蓝U 89蓝U
+第5行: 41草地 42草地 0草地 1草地 | 74灰U 73灰石 75灰石 76灰石 81灰石 84灰石 | 95红U 96红U 98红U 93红U 97红U 94红U
+第6行: 49草地 47草地 48草地 50草地 | 77棕U 78棕木 79棕木 80棕木 82棕木 83棕木 | 107绿U 108绿U 110绿U 105绿U 109绿U 106绿U
+第7行: 5草地 4草地 3草地 2草地 | 20小棕 21小棕 22中棕 23中棕 | 19绿顶黑边 16绿顶 17绿顶 18红顶 111灰绿 112大建筑 | 101灰U 102灰U 104灰U 99灰U 103灰U 100灰U 129橙白
