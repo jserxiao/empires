@@ -68,11 +68,14 @@ const state = {
   // 训练队列
   trainingQueues: new Map(), // buildingId → [{ unitType, progress, trainTime }]
 
-  // 选中单位
-  selectedIds: [],
+// 选中单位（己方）
+selectedIds: [],
 
-  // 选中资源瓦片 { tileX, tileY, key, amount, maxAmount } 或 null
-  selectedResource: null,
+// 选中资源瓦片 { tileX, tileY, key, amount, maxAmount } 或 null
+selectedResource: null,
+
+// 选中敌方实体 ID 或 null（仅查看信息，不可操作）
+selectedEnemy: null,
 
   // 视口
   viewport: { x: 0, y: 0 },
@@ -285,6 +288,7 @@ function rebuildEntities(mapData) {
         const building = createBuilding(tile.structure.type, x, y, tile.structure.team ?? TEAM.PLAYER)
         building.buildProgress = 100
         building.isBuilt = true
+        building.hp = building.maxHp  // 地图初始化的建筑为满血
       }
 
       // 单位
@@ -321,6 +325,7 @@ export function createUnit(unitType, worldX, worldY, team = TEAM.PLAYER) {
     armor: def.armor,
     range: def.range,
     moveSpeed: def.moveSpeed * TILE_SIZE, // 像素/秒
+    baseMoveSpeed: def.moveSpeed,         // 原始移速（UI显示用）
     attackSpeed: def.attackSpeed,
     state: ENTITY_STATE.IDLE,
     gatherer: def.gatherer,
@@ -334,7 +339,7 @@ export function createUnit(unitType, worldX, worldY, team = TEAM.PLAYER) {
     // 攻击
     targetId: null,
     attackCooldown: 0,
-    aggroRange: def.range > 1 ? 8 : 5,
+    aggroRange: def.range > 1 ? 12 : 10,
 
     // 采集
     gatherTargetIdx: -1,   // tileIdx
@@ -378,7 +383,7 @@ export function createBuilding(buildingType, tileX, tileY, team = TEAM.PLAYER) {
     size: { ...def.size },
     x: tileX * TILE_SIZE,
     y: tileY * TILE_SIZE,
-    hp: def.maxHp,
+    hp: 1,
     maxHp: def.maxHp,
     buildProgress: 0,
     isBuilt: false,
@@ -429,6 +434,7 @@ export function removeEntity(id) {
   }
   // 从选中列表移除
   state.selectedIds = state.selectedIds.filter(sid => sid !== id)
+  if (state.selectedEnemy === id) state.selectedEnemy = null
   scheduleNotify()
 }
 
@@ -452,9 +458,10 @@ export function getBuildingsOfTeam(team) {
 
 // ===== 选中管理 =====
 export function setSelected(ids) {
-  state.selectedIds = ids
-  state.selectedResource = null
-  scheduleNotify()
+state.selectedIds = ids
+state.selectedResource = null
+state.selectedEnemy = null
+scheduleNotify()
 }
 
 export function addToSelection(ids) {
@@ -470,9 +477,10 @@ export function removeFromSelection(id) {
 }
 
 export function clearSelection() {
-  state.selectedIds = []
-  state.selectedResource = null
-  scheduleNotify()
+state.selectedIds = []
+state.selectedResource = null
+state.selectedEnemy = null
+scheduleNotify()
 }
 
 export function setSelectedResource(tileX, tileY) {
@@ -496,8 +504,21 @@ export function setSelectedResource(tileX, tileY) {
     amount: state.resourceAmount[idx],
     maxAmount: def?.amount || 0,
   }
-  state.selectedIds = []
-  scheduleNotify()
+state.selectedIds = []
+state.selectedEnemy = null
+scheduleNotify()
+}
+
+// ===== 选中敌方实体（仅查看，不可操作） =====
+export function setSelectedEnemy(entityId) {
+state.selectedIds = []
+state.selectedResource = null
+state.selectedEnemy = entityId
+scheduleNotify()
+}
+
+export function getSelectedEnemy() {
+return state.selectedEnemy ? state.entities.get(state.selectedEnemy) : null
 }
 
 export function clearSelectedResourceIfDepleted() {
@@ -723,6 +744,7 @@ export function addBuildProgress(buildingId, amount) {
   building.buildProgress = Math.min(100, building.buildProgress + amount)
   if (building.buildProgress >= 100) {
     building.isBuilt = true
+    building.hp = building.maxHp  // 建造完成恢复满血
     recalcPopulation()
   }
   scheduleNotify()
@@ -809,6 +831,7 @@ export function getSnapshot() {
     selectedIds: [...state.selectedIds],
     selectedEntities: getSelectedEntities(),
     selectedResource: liveSelectedResource,
+    selectedEnemy: state.selectedEnemy ? state.entities.get(state.selectedEnemy) : null,
     trainingQueues: new Map(state.trainingQueues),
   }
 }

@@ -10,6 +10,7 @@
 import { getState, removeEntity, createWalkableCheck, getEntitiesInRange } from '../core/GameState.js'
 import { MAP_CONFIG, ENTITY_STATE, TEAM } from '../core/constants.js'
 import { findPath, pathToWorldPath, computePathLength } from '../core/Pathfinding.js'
+import { findAdjacentWalkable, prependCurrentPosition } from './MovementSystem.js'
 import { invalidateStaticCache } from '../game/GameRenderer.js'
 
 const { COLS, ROWS, TILE_SIZE } = MAP_CONFIG
@@ -80,39 +81,67 @@ function processAttack(entity, dt, projectiles) {
     return
   }
 
-  // 计算距离（建筑用中心点）
-  const tx = target.entityType === 'building'
-    ? (target.tileX + target.size.w / 2) * TILE_SIZE
-    : target.x
-  const ty = target.entityType === 'building'
-    ? (target.tileY + target.size.h / 2) * TILE_SIZE
-    : target.y
+  // 计算距离
+  let tx, ty
+  if (target.entityType === 'building') {
+    // 建筑目标：计算到建筑边缘的最短距离
+    // 建筑的矩形范围
+    const bLeft = target.tileX * TILE_SIZE
+    const bTop = target.tileY * TILE_SIZE
+    const bRight = (target.tileX + target.size.w) * TILE_SIZE
+    const bBottom = (target.tileY + target.size.h) * TILE_SIZE
+    // 找到建筑矩形上离攻击者最近的点
+    const nearestX = Math.max(bLeft, Math.min(entity.x, bRight))
+    const nearestY = Math.max(bTop, Math.min(entity.y, bBottom))
+    tx = nearestX
+    ty = nearestY
+  } else {
+    tx = target.x
+    ty = target.y
+  }
   const dx = tx - entity.x
   const dy = ty - entity.y
   const dist = Math.sqrt(dx * dx + dy * dy)
   const attackRange = entity.range * TILE_SIZE
 
   // 超出攻击范围 → 重新移动
-  if (dist > attackRange + TILE_SIZE) {
+  // 近战(range<=1)给0.5格容差，远程给小容差防浮点抖动
+  const rangePadding = entity.range <= 1 ? TILE_SIZE * 0.5 : TILE_SIZE * 0.15
+  if (dist > attackRange + rangePadding) {
     entity.state = ENTITY_STATE.MOVING
     entity.animState = 'walk'
-    // 重新寻路到目标
-    const targetCol = Math.floor(tx / TILE_SIZE)
-    const targetRow = Math.floor(ty / TILE_SIZE)
     const startCol = Math.floor(entity.x / TILE_SIZE)
     const startRow = Math.floor(entity.y / TILE_SIZE)
 
-    // 如果目标是建筑，寻路时排除该建筑以便走近攻击
-    const excludeId = target.entityType === 'building' ? target.id : undefined
-    const walkableCheck = createWalkableCheck(state, excludeId)
+    let targetCol, targetRow
+    let excludeId, walkableCheck
+    if (target.entityType === 'building') {
+      // 建筑目标：寻路到建筑周围最近的相邻可通行格子
+      excludeId = target.id
+      walkableCheck = createWalkableCheck(state, excludeId)
+      const adjacent = findAdjacentWalkable(state, target, startCol, startRow, walkableCheck)
+      if (adjacent) {
+        targetCol = adjacent.col
+        targetRow = adjacent.row
+      } else {
+        // 没有可达的相邻格子，不移动
+        return
+      }
+    } else {
+      targetCol = Math.floor(tx / TILE_SIZE)
+      targetRow = Math.floor(ty / TILE_SIZE)
+      excludeId = undefined
+      walkableCheck = createWalkableCheck(state)
+    }
 
     const gridPath = findPath(state.terrain, startCol, startRow, targetCol, targetRow, walkableCheck)
     if (gridPath.length >= 2) {
-      entity.path = pathToWorldPath(gridPath)
-      entity.pathIndex = 0
-      entity.progress = 0
-      entity.totalDistance = computePathLength(entity.path)
-      entity.distanceTraveled = 0
+const _wp = prependCurrentPosition(entity, pathToWorldPath(gridPath))
+entity.path = _wp
+entity.pathIndex = 0
+entity.progress = 0
+entity.totalDistance = computePathLength(_wp)
+entity.distanceTraveled = 0
     }
     return
   }
@@ -186,29 +215,46 @@ function checkAggro(entity) {
     const dist = Math.sqrt(dx * dx + dy * dy)
 
     entity.targetId = other.id
-    if (dist <= entity.range * TILE_SIZE) {
+    const aggroPadding = entity.range <= 1 ? TILE_SIZE * 0.5 : TILE_SIZE * 0.15
+    if (dist <= entity.range * TILE_SIZE + aggroPadding) {
       entity.state = ENTITY_STATE.ATTACKING
       entity.animState = 'attack'
     } else {
       entity.state = ENTITY_STATE.MOVING
       entity.animState = 'walk'
       // 寻路到目标
-      const targetCol = Math.floor(ox / TILE_SIZE)
-      const targetRow = Math.floor(oy / TILE_SIZE)
       const startCol = Math.floor(entity.x / TILE_SIZE)
       const startRow = Math.floor(entity.y / TILE_SIZE)
 
-      // 如果仇恨目标是建筑，寻路时排除该建筑
-      const excludeId = other.entityType === 'building' ? other.id : undefined
-      const walkableCheck = createWalkableCheck(state, excludeId)
+      let targetCol, targetRow
+      let excludeId, walkableCheck
+      if (other.entityType === 'building') {
+        // 建筑目标：寻路到建筑周围最近的相邻可通行格子
+        excludeId = other.id
+        walkableCheck = createWalkableCheck(state, excludeId)
+        const adjacent = findAdjacentWalkable(state, other, startCol, startRow, walkableCheck)
+        if (adjacent) {
+          targetCol = adjacent.col
+          targetRow = adjacent.row
+        } else {
+          // 没有可达的相邻格子，不移动
+          return
+        }
+      } else {
+        targetCol = Math.floor(ox / TILE_SIZE)
+        targetRow = Math.floor(oy / TILE_SIZE)
+        excludeId = undefined
+        walkableCheck = createWalkableCheck(state)
+      }
 
       const gridPath = findPath(state.terrain, startCol, startRow, targetCol, targetRow, walkableCheck)
       if (gridPath.length >= 2) {
-        entity.path = pathToWorldPath(gridPath)
-        entity.pathIndex = 0
-        entity.progress = 0
-        entity.totalDistance = computePathLength(entity.path)
-        entity.distanceTraveled = 0
+const _wp = prependCurrentPosition(entity, pathToWorldPath(gridPath))
+entity.path = _wp
+entity.pathIndex = 0
+entity.progress = 0
+entity.totalDistance = computePathLength(_wp)
+entity.distanceTraveled = 0
       }
     }
     return
@@ -217,13 +263,15 @@ function checkAggro(entity) {
 
 /**
  * 农民被攻击逃跑逻辑
- * 当农民受到伤害时，向远离攻击者的方向逃跑
+ * 当农民受到伤害时，向远离攻击者的方向短距离逃跑
  * @param {object} victim - 被攻击的实体
  * @param {object} attacker - 攻击者
  */
 export function fleeFromAttacker(victim, attacker) {
   if (!victim.gatherer) return  // 只有农民逃跑
   if (victim.state === ENTITY_STATE.DEAD) return
+  // 如果已经在逃跑/移动中，不重复触发
+  if (victim.state === ENTITY_STATE.MOVING && !victim.targetId) return
 
   const state = getState()
 
@@ -234,8 +282,8 @@ export function fleeFromAttacker(victim, attacker) {
     ? (attacker.tileY + attacker.size.h / 2) * TILE_SIZE : attacker.y)
   const dist = Math.sqrt(dx * dx + dy * dy) || 1
 
-  // 逃跑目标：沿远离方向跑 5 格
-  const fleeDist = 5
+  // 逃跑目标：沿远离方向跑 2 格（短距离，避免大幅位移）
+  const fleeDist = 2
   const targetCol = Math.floor(victim.x / TILE_SIZE + (dx / dist) * fleeDist)
   const targetRow = Math.floor(victim.y / TILE_SIZE + (dy / dist) * fleeDist)
 
@@ -246,20 +294,20 @@ export function fleeFromAttacker(victim, attacker) {
   const startCol = Math.floor(victim.x / TILE_SIZE)
   const startRow = Math.floor(victim.y / TILE_SIZE)
 
-  // 中断当前动作
+  // 中断当前动作（不丢弃携带的资源）
   victim.targetId = null
   victim.gatherTargetIdx = -1
   victim.gatherResourceType = null
   victim.buildTargetId = null
-  victim.carrying = null  // 逃跑时丢弃携带的资源
 
   const walkableCheck = createWalkableCheck(state)
   const gridPath = findPath(state.terrain, startCol, startRow, clampedCol, clampedRow, walkableCheck)
   if (gridPath.length >= 2) {
-    victim.path = pathToWorldPath(gridPath)
+    const _wp = prependCurrentPosition(victim, pathToWorldPath(gridPath))
+    victim.path = _wp
     victim.pathIndex = 0
     victim.progress = 0
-    victim.totalDistance = computePathLength(victim.path)
+    victim.totalDistance = computePathLength(_wp)
     victim.distanceTraveled = 0
     victim.state = ENTITY_STATE.MOVING
     victim.animState = 'walk'

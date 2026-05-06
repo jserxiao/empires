@@ -5,12 +5,18 @@ import { renderGame, renderSelectionBox, initRenderer, clearEntitySprites } from
 import { handleMouseMove, handleMouseDown, handleMouseUp, getTileInfo, enterBuildMode, cancelBuildMode, getBuildMode } from './game/InputHandler.js'
 import { startMapGeneration, cancelMapGeneration } from './game/MapWorker.js'
 import { initPixiApp, loadTextures, destroyPixiApp, isPixiReady } from './core/PixiApp.js'
-import { MAP_CONFIG, FOG_CONFIG } from './core/constants.js'
-import { getFogData } from './systems/FogOfWar.js'
+import { MAP_CONFIG, TEAM, ENTITY_STATE } from './core/constants.js'
+import { getFogData, getFogMode, cycleFogMode, getEnemyMemory, FOG_MODE } from './systems/FogOfWar.js'
 import InfoPanel from './components/InfoPanel.jsx'
 import './App.css'
 
 const { COLS, ROWS, TILE_SIZE } = MAP_CONFIG
+
+const FOG_MODE_LABELS = {
+  [FOG_MODE.FULL_VISIBLE]: '全明',
+  [FOG_MODE.HALF_VISIBLE]: '半明',
+  [FOG_MODE.BLACK_FOG]: '黑雾',
+}
 
 function App() {
   const [pixiReady, setPixiReady] = useState(false)
@@ -20,6 +26,7 @@ function App() {
   const [gameState, setGameState] = useState(null)
   const [tileInfo, setTileInfo] = useState(null)
   const [buildModeState, setBuildModeState] = useState(null)
+  const [fogModeState, setFogModeState] = useState(getFogMode())
 
   const pixiContainerRef = useRef(null)
   const minimapRef = useRef(null)
@@ -112,7 +119,7 @@ function App() {
       // 按钮始终忽略
       if (el.tagName === 'BUTTON') return false
       // 在 UI 面板内的点击忽略
-      if (el.closest?.('.info-panel') || el.closest?.('.resource-panel')) return false
+      if (el.closest?.('.info-panel') || el.closest?.('.resource-panel') || el.closest?.('.fog-toggle')) return false
       // 小地图点击忽略
       if (el.tagName === 'CANVAS' && el !== pixiContainerRef.current?.querySelector('canvas')) return false
       return true
@@ -177,24 +184,80 @@ function App() {
     const imgData = ctx.createImageData(mw, mh)
     const c = { 0:[26,82,118], 1:[41,128,185], 2:[212,172,110], 3:[200,214,160], 4:[82,190,128], 5:[39,174,96], 6:[127,140,141] }
 
-    // 黑雾数据
-    const fogEnabled = FOG_CONFIG.enabled
-    const { fogExplored, fogVisible } = fogEnabled ? getFogData() : { fogExplored: null, fogVisible: null }
+    // 迷雾模式
+    const fogMode = getFogMode()
+    const { fogExplored, fogVisible } = fogMode !== FOG_MODE.FULL_VISIBLE ? getFogData() : { fogExplored: null, fogVisible: null }
+    const hasFog = fogMode !== FOG_MODE.FULL_VISIBLE && fogExplored && fogVisible
 
     for (let y = 0; y < mh; y++) { const row = Math.floor(y / sy); for (let x = 0; x < mw; x++) { const col = Math.floor(x / sx); const i = (y*mw+x)*4; const t = terrain[row*COLS+col]??4; const cc = c[t]||[82,190,128];
-      // 黑雾处理
-      if (fogEnabled && fogExplored && fogVisible) {
+      // 迷雾处理
+      if (hasFog) {
         const fidx = row * COLS + col
-        if (!fogExplored[fidx]) {
-          // 未探索 - 深黑
+        if (fogMode === FOG_MODE.BLACK_FOG && !fogExplored[fidx]) {
+          // 黑雾模式：未探索 - 深黑
           imgData.data[i]=10; imgData.data[i+1]=10; imgData.data[i+2]=10; imgData.data[i+3]=255; continue
         } else if (!fogVisible[fidx]) {
-          // 已探索但不在视野 - 灰色显示
-          imgData.data[i]=Math.floor(cc[0]*0.35); imgData.data[i+1]=Math.floor(cc[1]*0.35); imgData.data[i+2]=Math.floor(cc[2]*0.35); imgData.data[i+3]=255; continue
+          // 不在当前视野 - 灰色显示（半明/黑雾模式通用）
+          const dimFactor = fogMode === FOG_MODE.BLACK_FOG ? 0.35 : 0.4
+          imgData.data[i]=Math.floor(cc[0]*dimFactor); imgData.data[i+1]=Math.floor(cc[1]*dimFactor); imgData.data[i+2]=Math.floor(cc[2]*dimFactor); imgData.data[i+3]=255; continue
         }
       }
       imgData.data[i]=cc[0]; imgData.data[i+1]=cc[1]; imgData.data[i+2]=cc[2]; imgData.data[i+3]=255 } }
     ctx.putImageData(imgData, 0, 0)
+
+    // 全明模式：在小地图上绘制所有单位/建筑缩略圆点
+    if (fogMode === FOG_MODE.FULL_VISIBLE) {
+      // 我方红色圆点
+      for (const entity of state.entities.values()) {
+        if (entity.state === ENTITY_STATE.DEAD) continue
+        if (entity.team !== TEAM.PLAYER) continue
+        const ex = entity.entityType === 'building'
+          ? (entity.tileX + entity.size.w / 2) * TILE_SIZE
+          : entity.x
+        const ey = entity.entityType === 'building'
+          ? (entity.tileY + entity.size.h / 2) * TILE_SIZE
+          : entity.y
+        const mx = ex / TILE_SIZE * sx
+        const my = ey / TILE_SIZE * sy
+        const radius = entity.entityType === 'building' ? 2 : 1
+        ctx.fillStyle = '#CC3333'
+        ctx.beginPath()
+        ctx.arc(mx, my, radius, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      // 敌方蓝色圆点
+      const enemyMemory = getEnemyMemory()
+      for (const mem of enemyMemory) {
+        const mx = mem.x / TILE_SIZE * sx
+        const my = mem.y / TILE_SIZE * sy
+        const radius = mem.entityType === 'building' ? 2 : 1
+        ctx.fillStyle = '#5588E9'
+        ctx.beginPath()
+        ctx.arc(mx, my, radius, 0, Math.PI * 2)
+        ctx.fill()
+      }
+    } else if (fogMode === FOG_MODE.HALF_VISIBLE || fogMode === FOG_MODE.BLACK_FOG) {
+      // 半明/黑雾模式：在小地图上绘制记忆中的敌方圆点
+      const enemyMemory = getEnemyMemory()
+      for (const mem of enemyMemory) {
+        const tileX = Math.floor(mem.x / TILE_SIZE)
+        const tileY = Math.floor(mem.y / TILE_SIZE)
+        const fidx = tileY * COLS + tileX
+        // 只在不在当前视野内的区域绘制
+        if (fogVisible && fogVisible[fidx]) continue
+        // 黑雾模式下，未探索的区域也不画
+        if (fogMode === FOG_MODE.BLACK_FOG && fogExplored && !fogExplored[fidx]) continue
+
+        const mx = mem.x / TILE_SIZE * sx
+        const my = mem.y / TILE_SIZE * sy
+        const radius = mem.entityType === 'building' ? 2 : 1
+        ctx.fillStyle = 'rgba(85, 136, 233, 0.7)'
+        ctx.beginPath()
+        ctx.arc(mx, my, radius, 0, Math.PI * 2)
+        ctx.fill()
+      }
+    }
+
     const vp = state.viewport
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 1
     ctx.strokeRect(vp.x/TILE_SIZE*sx, vp.y/TILE_SIZE*sy, window.innerWidth/TILE_SIZE*sx, window.innerHeight/TILE_SIZE*sy)
@@ -210,6 +273,11 @@ function App() {
 
   const onBuildModeChange = useCallback((type) => {
     setBuildModeState(type)
+  }, [])
+
+  const handleFogToggle = useCallback(() => {
+    const newMode = cycleFogMode()
+    setFogModeState(newMode)
   }, [])
 
   const resources = gameState?.resources || { food: 0, wood: 0, gold: 0, stone: 0 }
@@ -241,6 +309,9 @@ function App() {
             buildModeState={buildModeState}
             onBuildModeChange={onBuildModeChange}
           />
+          <button className="fog-toggle" onClick={handleFogToggle}>
+            视野: {FOG_MODE_LABELS[fogModeState]}
+          </button>
           <canvas ref={minimapRef} className="minimap" width={200} height={200} onClick={onMinimapClick} />
         </>
       )}

@@ -10,6 +10,7 @@
 import { getState, addResource, consumeResource, clearSelectedResourceIfDepleted, createWalkableCheck } from '../core/GameState.js'
 import { MAP_CONFIG, ENTITY_STATE, RESOURCE_DEFS } from '../core/constants.js'
 import { findPath, pathToWorldPath, computePathLength } from '../core/Pathfinding.js'
+import { findAdjacentWalkableForResource, prependCurrentPosition } from './MovementSystem.js'
 import { invalidateStaticCache } from '../game/GameRenderer.js'
 
 const { COLS, ROWS, TILE_SIZE } = MAP_CONFIG
@@ -212,17 +213,25 @@ function moveEntityTo(entity, tileX, tileY, state) {
   const startCol = Math.floor(entity.x / TILE_SIZE)
   const startRow = Math.floor(entity.y / TILE_SIZE)
 
-  // 采集目标排除资源障碍，让农民能走到资源旁边
-  const excludeResourceIdx = tileY * COLS + tileX
-  const walkableCheck = createWalkableCheck(state, undefined, excludeResourceIdx)
+  // 不排除资源障碍，所有资源都是不可通行的
+  const walkableCheck = createWalkableCheck(state)
 
-  const gridPath = findPath(state.terrain, startCol, startRow, tileX, tileY, walkableCheck)
+  // 寻找资源格周围最近的相邻可通行格子
+  const adjacent = findAdjacentWalkableForResource(state, tileX, tileY, startCol, startRow, walkableCheck)
+  if (!adjacent) {
+    entity.state = ENTITY_STATE.IDLE
+    entity.animState = 'idle'
+    return
+  }
+
+  const gridPath = findPath(state.terrain, startCol, startRow, adjacent.col, adjacent.row, walkableCheck)
   if (gridPath.length >= 2) {
-    entity.path = pathToWorldPath(gridPath)
-    entity.pathIndex = 0
-    entity.progress = 0
-    entity.totalDistance = computePathLength(entity.path)
-    entity.distanceTraveled = 0
+const _wp = prependCurrentPosition(entity, pathToWorldPath(gridPath))
+entity.path = _wp
+entity.pathIndex = 0
+entity.progress = 0
+entity.totalDistance = computePathLength(_wp)
+entity.distanceTraveled = 0
     entity.state = ENTITY_STATE.MOVING
     entity.animState = 'walk'
   } else {

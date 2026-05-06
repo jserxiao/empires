@@ -161,7 +161,7 @@ export const UNIT_DEFS = {
     attack: 3,
     armor: 0,
     range: 1,
-    moveSpeed: 1.2,
+    moveSpeed: 0.6,
     attackSpeed: 1.3,
     cost: { food: 50, wood: 0, gold: 0, stone: 0 },
     trainTime: 15,
@@ -177,7 +177,7 @@ export const UNIT_DEFS = {
     attack: 3,
     armor: 0,
     range: 1,
-    moveSpeed: 1.2,
+    moveSpeed: 0.6,
     attackSpeed: 1.5,
     cost: { food: 50, wood: 0, gold: 0, stone: 0 },
     trainTime: 15,
@@ -191,7 +191,7 @@ export const UNIT_DEFS = {
     attack: 2,
     armor: 0,
     range: 1,
-    moveSpeed: 1.2,
+    moveSpeed: 0.6,
     attackSpeed: 1.2,
     cost: { food: 50, wood: 0, gold: 0, stone: 0 },
     trainTime: 15,
@@ -205,7 +205,7 @@ export const UNIT_DEFS = {
     attack: 8,
     armor: 2,
     range: 1,
-    moveSpeed: 1.0,
+    moveSpeed: 0.5,
     attackSpeed: 1.0,
     cost: { food: 60, wood: 20, gold: 0, stone: 0 },
     trainTime: 20,
@@ -216,10 +216,10 @@ export const UNIT_DEFS = {
     name: '弓箭手',
     image: 'archer',
     maxHp: 30,
-    attack: 6,
-    armor: 0,
-    range: 8,
-    moveSpeed: 1.1,
+      attack: 6,
+      armor: 0,
+      range: 3,
+      moveSpeed: 0.55,
     attackSpeed: 1.2,
     cost: { food: 30, wood: 40, gold: 0, stone: 0 },
     trainTime: 22,
@@ -233,7 +233,7 @@ export const UNIT_DEFS = {
     attack: 12,
     armor: 4,
     range: 1,
-    moveSpeed: 1.5,
+    moveSpeed: 0.75,
     attackSpeed: 0.8,
     cost: { food: 60, wood: 0, gold: 60, stone: 0 },
     trainTime: 30,
@@ -247,7 +247,7 @@ export const UNIT_DEFS = {
     attack: 10,
     armor: 3,
     range: 1,
-    moveSpeed: 0.9,
+    moveSpeed: 0.45,
     attackSpeed: 1.0,
     cost: { food: 35, wood: 0, gold: 25, stone: 0 },
     trainTime: 22,
@@ -261,7 +261,7 @@ export const UNIT_DEFS = {
     attack: 8,
     armor: 6,
     range: 1,
-    moveSpeed: 0.7,
+    moveSpeed: 0.35,
     attackSpeed: 0.9,
     cost: { food: 40, wood: 0, gold: 40, stone: 10 },
     trainTime: 28,
@@ -357,7 +357,7 @@ export const BUILDING_DEFS = {
     cost: { food: 0, wood: 50, gold: 0, stone: 100 },
     buildTime: 40,
     attack: 6,
-    range: 8,
+    range: 5,
     attackSpeed: 1.0,
   },
   [BUILDING_TYPE.CIVILIAN_HOUSE]: {
@@ -415,13 +415,12 @@ export const ROAD_IMAGES = {
 
 export const ROAD_COLOR = '#b0976a'
 
-// ========== 黑雾系统配置 ==========
+// ========== 迷雾系统配置 ==========
 export const FOG_CONFIG = {
-  enabled: false,              // 是否启用黑雾（可通过 setFogEnabled 切换）
   unitVisionRange: 6,         // 单位视野（瓦片数）
   buildingVisionRange: 8,     // 建筑视野（瓦片数）
-  fogAlpha: 0.92,             // 未探索区域黑雾透明度
-  exploredAlpha: 0.45,        // 已探索但不在视野内的灰雾透明度
+  fogAlpha: 0.92,             // 黑雾模式：未探索区域透明度
+  exploredAlpha: 0.45,        // 已探索但不在视野内的灰雾透明度（半明/黑雾通用）
 }
 
 

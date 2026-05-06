@@ -163,13 +163,13 @@ const SVG_SPRITE_DEFS = {
   '城镇中心下':     { source: 0, bbox: [1570, 128, 60, 38], colorGroup: 'building' }, // Layer0_120 第2行第17列
 
   // ===== 单位 ===== - medievalRTS_vector.svg (source: 0)
-  '男农夫':         { source: 0, bbox: [1112, 436, 16, 24] }, // Layer0_95  row6 col13
-  '女农夫':         { source: 0, bbox: [1208, 436, 16, 24] }, // Layer0_96  row6 col14
+  '男农夫':         { source: 0, bbox: [1112, 436, 16, 24], colorGroup: 'building' }, // Layer0_95  row6 col13
+  '女农夫':         { source: 0, bbox: [1208, 436, 16, 24], colorGroup: 'building' }, // Layer0_96  row6 col14
 
   // ===== 新建筑 ===== - medievalRTS_vector.svg (source: 0)
   'civilian_house': { source: 0, bbox: [522, 610, 44, 60], colorGroup: 'roof_only' },  // Layer0_16  row7 col6
-  'halberdier':     { source: 0, bbox: [1302, 434, 20, 26] }, // Layer0_98  row6 col15
-  'iron_guard':     { source: 0, bbox: [1399, 435, 18, 25] }, // Layer0_93  row6 col16
+  'halberdier':     { source: 0, bbox: [1302, 434, 20, 26], colorGroup: 'building' }, // Layer0_98  row6 col15
+  'iron_guard':     { source: 0, bbox: [1399, 435, 18, 25], colorGroup: 'building' }, // Layer0_93  row6 col16
 
   // ===== 新建筑 ===== - scifiRTS_vector.svg (source: 1)
   'city_wall':      { source: 1, bbox: [236, 614, 40, 52], colorGroup: 'building' },  // Layer0_144 row7 col3
@@ -185,9 +185,9 @@ const SVG_SPRITE_DEFS = {
   'archery':       { source: 0, bbox: [1570, 128, 60, 38], colorGroup: 'building' }, // 复用 城镇中心下
   'stable':        { source: 0, bbox: [1570, 58,  60, 38], colorGroup: 'building' }, // 复用 城镇中心上
   'tower':         { source: 0, bbox: [1570, 128, 60, 38], colorGroup: 'building' }, // 复用 城镇中心下
-  'swordsman':     { source: 0, bbox: [1208, 436, 16, 24] }, // 复用 男农夫
-  'archer':        { source: 0, bbox: [1112, 436, 16, 24] }, // 复用 女农夫
-  'knight':        { source: 0, bbox: [1208, 436, 16, 24] }, // 复用 男农夫
+  'swordsman':     { source: 0, bbox: [1208, 436, 16, 24], colorGroup: 'building' }, // 复用 男农夫
+  'archer':        { source: 0, bbox: [1112, 436, 16, 24], colorGroup: 'building' }, // 复用 女农夫
+  'knight':        { source: 0, bbox: [1208, 436, 16, 24], colorGroup: 'building' }, // 复用 男农夫
 }
 
 // 兼容旧格式：SVG_SPRITE_MAP 导出为简单的 [x, y, w, h] 格式（仅 medieval 源）

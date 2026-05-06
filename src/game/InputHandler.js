@@ -1,7 +1,7 @@
 import {
   getState, setSelected, clearSelection, getEntity,
   startBuilding, removeFromSelection, canAfford as stateCanAfford,
-  setSelectedResource,
+  setSelectedResource, setSelectedEnemy,
 } from '../core/GameState.js'
 import { commandMove, commandAttack, commandGather, commandBuild } from '../systems/MovementSystem.js'
 import { getMousePosition } from '../core/GameLoop.js'
@@ -177,7 +177,11 @@ function handleRightClick(e) {
     const ent = getEntity(id)
     return ent && ent.entityType === 'unit' && ent.team === TEAM.PLAYER && ent.state !== ENTITY_STATE.DEAD
   })
-  if (ids.length === 0) return { handled: true }
+  if (ids.length === 0) {
+    // 没有己方单位选中，清除敌方选中状态
+    if (state.selectedEnemy) clearSelection()
+    return { handled: true }
+  }
 
   // 检查是否右键点击了己方未完成建筑 → 派农民去建造
   for (const entity of state.entities.values()) {
@@ -239,6 +243,8 @@ function isEntityHit(entity, worldX, worldY) {
 function handleLeftClick(tileCol, tileRow) {
   const state = getState()
   const worldX = tileCol * TILE_SIZE + TILE_SIZE / 2, worldY = tileRow * TILE_SIZE + TILE_SIZE / 2
+
+  // 先检查己方实体
   const clicked = []
   for (const entity of state.entities.values()) {
     if (entity.state === ENTITY_STATE.DEAD || entity.team !== TEAM.PLAYER) continue
@@ -250,18 +256,30 @@ function handleLeftClick(tileCol, tileRow) {
       if (state.selectedIds.includes(units[0].id)) removeFromSelection(units[0].id)
       else setSelected([units[0].id])
     } else setSelected([clicked[0].id])
-  } else {
-    // 没有点击到实体，检查是否点击了资源
-    if (tileCol >= 0 && tileCol < COLS && tileRow >= 0 && tileRow < ROWS) {
-      const idx = tileRow * COLS + tileCol
-      if (state.resource[idx] && state.resourceAmount[idx] > 0) {
-        setSelectedResource(tileCol, tileRow)
-      } else {
-        clearSelection()
-      }
+    buildMode = null
+    return
+  }
+
+  // 检查敌方/中立实体 → 选中查看信息（不可操作）
+  for (const entity of state.entities.values()) {
+    if (entity.state === ENTITY_STATE.DEAD || entity.team === TEAM.PLAYER) continue
+    if (isEntityHit(entity, worldX, worldY)) {
+      setSelectedEnemy(entity.id)
+      buildMode = null
+      return
+    }
+  }
+
+  // 没有点击到实体，检查是否点击了资源
+  if (tileCol >= 0 && tileCol < COLS && tileRow >= 0 && tileRow < ROWS) {
+    const idx = tileRow * COLS + tileCol
+    if (state.resource[idx] && state.resourceAmount[idx] > 0) {
+      setSelectedResource(tileCol, tileRow)
     } else {
       clearSelection()
     }
+  } else {
+    clearSelection()
   }
   buildMode = null
 }

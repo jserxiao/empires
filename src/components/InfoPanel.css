@@ -96,6 +96,19 @@
   color: #81c784;
   border: 1px solid rgba(76, 175, 80, 0.35);
 }
+.info-badge--enemy {
+  background: rgba(244, 67, 54, 0.2);
+  color: #ef9a9a;
+  border: 1px solid rgba(244, 67, 54, 0.35);
+}
+
+/* 敌方单位类型名（显示在名字下方） */
+.info-enemy-type {
+  color: #999;
+  font-size: 0.75rem;
+  font-style: italic;
+  margin-bottom: 4px;
+}
 
 /* ===== 血条 ===== */
 .info-hp-bar {
@@ -335,5 +348,33 @@
 .info-resource-detail {
   color: #bbb;
   font-size: 0.78rem;
+  font-family: monospace;
+}
+
+/* ===== 属性网格 ===== */
+.info-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.info-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.info-stat-label {
+  color: #888;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.info-stat-value {
+  color: #e8d5b7;
+  font-size: 0.85rem;
+  font-weight: 700;
   font-family: monospace;
 }

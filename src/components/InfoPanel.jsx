@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
-import { BUILDING_DEFS, UNIT_DEFS, RESOURCE_TYPE, RESOURCE_DEFS } from '../core/constants'
+import { BUILDING_DEFS, UNIT_DEFS, RESOURCE_TYPE, RESOURCE_DEFS, TEAM } from '../core/constants'
 import { cancelBuild, demolishBuilding, startTraining } from '../core/GameState'
 import { enterBuildMode, cancelBuildMode, getBuildMode } from '../game/InputHandler'
+import { PLAYER_COLORS } from '../core/SvgTextures'
 import './InfoPanel.css'
 
 // ===== 通用子组件 =====
@@ -234,6 +235,36 @@ function UnitInfo({ unit, buildModeState, onBuildModeChange }) {
       <HpBar hp={unit.hp} maxHp={unit.maxHp} />
       <div className="info-hp-text">{unit.hp} / {unit.maxHp}</div>
 
+      {/* 单位属性 */}
+      <div className="info-block">
+        <div className="info-stats-grid">
+          {unit.attack != null && (
+            <div className="info-stat">
+              <span className="info-stat-label">攻击</span>
+              <span className="info-stat-value">{unit.attack}</span>
+            </div>
+          )}
+          {unit.armor != null && (
+            <div className="info-stat">
+              <span className="info-stat-label">护甲</span>
+              <span className="info-stat-value">{unit.armor}</span>
+            </div>
+          )}
+          {unit.range != null && (
+            <div className="info-stat">
+              <span className="info-stat-label">射程</span>
+              <span className="info-stat-value">{unit.range}</span>
+            </div>
+          )}
+          {unit.baseMoveSpeed != null && (
+            <div className="info-stat">
+              <span className="info-stat-label">移速</span>
+              <span className="info-stat-value">{unit.baseMoveSpeed}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* 农民携带状态 */}
       {unit.gatherer && (
         <div className="info-block">
@@ -328,17 +359,127 @@ function MultiSelectInfo({ entities, buildModeState, onBuildModeChange }) {
   )
 }
 
+// ===== 敌方单位序号映射 =====
+const enemyUnitCounter = { value: 0 }
+const enemyUnitNames = new Map()  // entityId → 序号字母
+
+/** 获取敌方单位的显示名称（电脑A、电脑B...） */
+function getEnemyUnitName(entityId) {
+  if (!enemyUnitNames.has(entityId)) {
+    const letter = String.fromCharCode(65 + (enemyUnitCounter.value % 26))  // A-Z 循环
+    enemyUnitNames.set(entityId, letter)
+    enemyUnitCounter.value++
+  }
+  return '电脑' + enemyUnitNames.get(entityId)
+}
+
+// 蓝色玩家主色调，用于敌方 tag
+const ENEMY_COLOR = PLAYER_COLORS.blue?.orange?.[0] || '#5588E9'
+
+// ===== 敌方实体信息面板（只读） =====
+
+function EnemyInfo({ entity }) {
+  const isBuilding = entity.entityType === 'building'
+  const displayName = isBuilding ? entity.name : getEnemyUnitName(entity.id)
+
+  return (
+    <div className="info-section">
+      <div className="info-header">
+        <span className="info-name">{displayName}</span>
+        <span className="info-badge info-badge--enemy" style={{
+          background: `${ENEMY_COLOR}33`,
+          color: ENEMY_COLOR,
+          borderColor: `${ENEMY_COLOR}66`,
+        }}>电脑</span>
+      </div>
+
+      {/* 非建筑单位显示单位类型名 */}
+      {!isBuilding && (
+        <div className="info-enemy-type">{entity.name}</div>
+      )}
+
+      <HpBar hp={entity.hp} maxHp={entity.maxHp} />
+      <div className="info-hp-text">{entity.hp} / {entity.maxHp}</div>
+
+      {/* 建造中的建筑：显示合并的建造进度+血量条 */}
+      {isBuilding && !entity.isBuilt && (
+        <div className="info-block">
+          <div className="info-subtitle">建造进度</div>
+          <ProgressBar progress={entity.buildProgress} max={100} color="#ff9800" />
+        </div>
+      )}
+
+      {/* 单位属性 */}
+      {!isBuilding && (
+        <div className="info-block">
+          <div className="info-stats-grid">
+            {entity.attack != null && (
+              <div className="info-stat">
+                <span className="info-stat-label">攻击</span>
+                <span className="info-stat-value">{entity.attack}</span>
+              </div>
+            )}
+            {entity.armor != null && (
+              <div className="info-stat">
+                <span className="info-stat-label">护甲</span>
+                <span className="info-stat-value">{entity.armor}</span>
+              </div>
+            )}
+            {entity.range != null && (
+              <div className="info-stat">
+                <span className="info-stat-label">射程</span>
+                <span className="info-stat-value">{entity.range}</span>
+              </div>
+            )}
+            {entity.baseMoveSpeed != null && (
+              <div className="info-stat">
+                <span className="info-stat-label">移速</span>
+                <span className="info-stat-value">{entity.baseMoveSpeed}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {isBuilding && entity.attack != null && (
+        <div className="info-block">
+          <div className="info-stats-grid">
+            <div className="info-stat">
+              <span className="info-stat-label">攻击</span>
+              <span className="info-stat-value">{entity.attack}</span>
+            </div>
+            <div className="info-stat">
+              <span className="info-stat-label">射程</span>
+              <span className="info-stat-value">{entity.range}</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ===== 主面板 =====
 
 export default function InfoPanel({ gameState, buildModeState, onBuildModeChange }) {
   const selected = gameState?.selectedEntities || []
   const selectedResource = gameState?.selectedResource || null
+  const selectedEnemy = gameState?.selectedEnemy || null
 
   // 没有选中任何东西
-  if (selected.length === 0 && !selectedResource) return null
+  if (selected.length === 0 && !selectedResource && !selectedEnemy) return null
 
   const handleActionDone = () => {
     // 取消后不需要额外处理，状态变更会通过 subscribe 自动更新
+  }
+
+  // 选中敌方实体（只读信息）
+  if (selectedEnemy) {
+    return (
+      <div className="info-panel">
+        <EnemyInfo entity={selectedEnemy} />
+      </div>
+    )
   }
 
   // 选中资源

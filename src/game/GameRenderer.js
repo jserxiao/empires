@@ -16,7 +16,7 @@ import {
   FOG_CONFIG, TEAM, BUILDING_DEFS,
 } from '../core/constants.js'
 import { getTexture, getTextureForTeam, getLayers, renderFrame, getPixiApp } from '../core/PixiApp.js'
-import { getFogData, getTileVisibility } from '../systems/FogOfWar.js'
+import { getFogData, getTileVisibility, getFogMode, isFogEnabled, getEnemyMemory, getEnemyMemoryVersion, FOG_MODE } from '../systems/FogOfWar.js'
 import { getBuildMode } from './InputHandler.js'
 import {
   Container, Sprite, Graphics, RenderTexture, Texture,
@@ -79,10 +79,11 @@ export function renderGame(alpha, projectiles) {
 
   // 4. 同步实体精灵
   const selectedIds = new Set(state.selectedIds)
+  const selectedEnemyId = state.selectedEnemy
   const activeEntityIds = new Set()
 
   for (const item of renderables) {
-    const isSelected = selectedIds.has(item.entity.id)
+    const isSelected = selectedIds.has(item.entity.id) || item.entity.id === selectedEnemyId
     item.entity._selected = isSelected
     activeEntityIds.add(item.entity.id)
     updateEntitySprite(item, isSelected, vp)
@@ -218,16 +219,24 @@ function renderSelectedResource(state, vp) {
 let fogGraphics = null
 let lastFogVersion = -1
 
+// ===== 迷雾模式圆点层 =====
+let fogDotGraphics = null
+let lastDotVersion = -1
+
 function renderFogLayer(vp) {
-  if (!FOG_CONFIG.enabled) {
-    // 黑雾关闭时清空雾层
+  const mode = getFogMode()
+
+  if (mode === FOG_MODE.FULL_VISIBLE) {
+    // 全明模式：无迷雾覆盖，只绘制缩略圆点
     if (fogGraphics) {
       fogGraphics.clear()
       fogGraphics.visible = false
     }
+    renderFogDots(vp, mode)
     return
   }
 
+  // 半明/黑雾模式
   const { fogExplored, fogVisible, version } = getFogData()
   if (!fogExplored || !fogVisible) return
 
@@ -241,8 +250,11 @@ function renderFogLayer(vp) {
   }
 
   // 脏检查：version 没变且视口没变则跳过重绘
-  // （目前 fog 每帧都更新 version，所以实际上每帧都重绘，但批量绘制已大幅优化性能）
-  if (version === lastFogVersion) return
+  if (version === lastFogVersion) {
+    // 仍然需要绘制圆点
+    renderFogDots(vp, mode)
+    return
+  }
   lastFogVersion = version
 
   fogGraphics.clear()
@@ -256,35 +268,130 @@ function renderFogLayer(vp) {
   const fogAlpha = FOG_CONFIG.fogAlpha
   const exploredAlpha = FOG_CONFIG.exploredAlpha
 
-  // 分两批绘制：先画所有已探索灰雾的，再画所有未探索的
-  // 每批只调用一次 fill，大幅减少 draw call
-  // 第一批：已探索但不在视野内（灰雾）
-  fogGraphics.beginPath()
-  for (let row = startRow; row < endRow; row++) {
-    for (let col = startCol; col < endCol; col++) {
-      const idx = row * COLS + col
-      if (fogVisible[idx]) continue       // 当前可见 - 不画
-      if (!fogExplored[idx]) continue     // 未探索 - 留到第二批
-      const px = col * TILE_SIZE
-      const py = row * TILE_SIZE
-      fogGraphics.rect(px, py, TILE_SIZE, TILE_SIZE)
+  if (mode === FOG_MODE.BLACK_FOG) {
+    // 黑雾模式：分两批绘制
+    // 第一批：已探索但不在视野内（灰雾 - 较浅，显示地形轮廓）
+    fogGraphics.beginPath()
+    for (let row = startRow; row < endRow; row++) {
+      for (let col = startCol; col < endCol; col++) {
+        const idx = row * COLS + col
+        if (fogVisible[idx]) continue       // 当前可见 - 不画
+        if (!fogExplored[idx]) continue     // 未探索 - 留到第二批
+        const px = col * TILE_SIZE
+        const py = row * TILE_SIZE
+        fogGraphics.rect(px, py, TILE_SIZE, TILE_SIZE)
+      }
     }
-  }
-  fogGraphics.fill({ color: 0x000000, alpha: exploredAlpha })
+    fogGraphics.fill({ color: 0x000000, alpha: exploredAlpha })
 
-  // 第二批：未探索（黑雾）
-  fogGraphics.beginPath()
-  for (let row = startRow; row < endRow; row++) {
-    for (let col = startCol; col < endCol; col++) {
-      const idx = row * COLS + col
-      if (fogVisible[idx]) continue       // 当前可见 - 不画
-      if (fogExplored[idx]) continue      // 已探索 - 已在第一批画了
-      const px = col * TILE_SIZE
-      const py = row * TILE_SIZE
-      fogGraphics.rect(px, py, TILE_SIZE, TILE_SIZE)
+    // 第二批：未探索（黑雾 - 全黑）
+    fogGraphics.beginPath()
+    for (let row = startRow; row < endRow; row++) {
+      for (let col = startCol; col < endCol; col++) {
+        const idx = row * COLS + col
+        if (fogVisible[idx]) continue       // 当前可见 - 不画
+        if (fogExplored[idx]) continue      // 已探索 - 已在第一批画了
+        const px = col * TILE_SIZE
+        const py = row * TILE_SIZE
+        fogGraphics.rect(px, py, TILE_SIZE, TILE_SIZE)
+      }
+    }
+    fogGraphics.fill({ color: 0x000000, alpha: fogAlpha })
+  } else {
+    // 半明模式：只有已探索/未探索的概念，没有全黑
+    // 所有不在当前视野内的区域统一覆盖半透明灰雾
+    fogGraphics.beginPath()
+    for (let row = startRow; row < endRow; row++) {
+      for (let col = startCol; col < endCol; col++) {
+        const idx = row * COLS + col
+        if (fogVisible[idx]) continue       // 当前可见 - 不画
+        const px = col * TILE_SIZE
+        const py = row * TILE_SIZE
+        fogGraphics.rect(px, py, TILE_SIZE, TILE_SIZE)
+      }
+    }
+    fogGraphics.fill({ color: 0x000000, alpha: exploredAlpha })
+  }
+
+  // 绘制敌方记忆缩略圆点
+  renderFogDots(vp, mode)
+}
+
+/**
+ * 绘制敌方记忆缩略圆点
+ * 全明模式：所有单位/建筑都显示圆点
+ * 半明/黑雾模式：只显示不在当前视野内的记忆位置
+ */
+function renderFogDots(vp, mode) {
+  const { fogLayer } = getLayers()
+  const memVersion = getEnemyMemoryVersion()
+
+  // 懒创建 Graphics
+  if (!fogDotGraphics) {
+    fogDotGraphics = new Graphics()
+    fogDotGraphics.label = 'fogDots'
+    fogDotGraphics.zIndex = 1000 // 确保在迷雾覆盖上方
+    fogLayer.addChild(fogDotGraphics)
+  }
+
+  // 全明模式下不需要缓存版本检查，每帧都重绘（因为单位移动）
+  // 半明/黑雾模式下，记忆位置不常变化，可以缓存
+  if (mode !== FOG_MODE.FULL_VISIBLE && memVersion === lastDotVersion) return
+  lastDotVersion = memVersion
+
+  fogDotGraphics.clear()
+  fogDotGraphics.visible = true
+
+  const state = getState()
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  const m = TILE_SIZE * 4 // 扩展渲染范围
+
+  if (mode === FOG_MODE.FULL_VISIBLE) {
+    // 全明模式：所有单位显示为缩略圆点
+    for (const entity of state.entities.values()) {
+      if (entity.state === ENTITY_STATE.DEAD) continue
+      const ex = entity.entityType === 'building'
+        ? (entity.tileX + entity.size.w / 2) * TILE_SIZE
+        : entity.x
+      const ey = entity.entityType === 'building'
+        ? (entity.tileY + entity.size.h / 2) * TILE_SIZE
+        : entity.y
+
+      // 视口裁剪
+      if (ex < vp.x - m || ex > vp.x + vw + m || ey < vp.y - m || ey > vp.y + vh + m) continue
+
+      const isBuilding = entity.entityType === 'building'
+      const radius = isBuilding ? 6 : 3
+      // 我方红色，敌方蓝色
+      const dotColor = entity.team === TEAM.PLAYER ? 0xCC3333 : 0x5588E9
+
+      fogDotGraphics.circle(ex, ey, radius)
+      fogDotGraphics.fill({ color: dotColor, alpha: 0.8 })
+    }
+  } else {
+    // 半明/黑雾模式：绘制记忆中的敌方缩略圆点
+    const memory = getEnemyMemory()
+    for (const mem of memory) {
+      // 检查是否在当前视野内 - 视野内的实体由正常渲染系统绘制
+      const tileX = Math.floor(mem.x / TILE_SIZE)
+      const tileY = Math.floor(mem.y / TILE_SIZE)
+      const vis = getTileVisibility(tileX, tileY)
+      if (vis >= 2) continue // 在当前视野内，跳过（正常渲染会处理）
+
+      // 视口裁剪
+      if (mem.x < vp.x - m || mem.x > vp.x + vw + m || mem.y < vp.y - m || mem.y > vp.y + vh + m) continue
+
+      const isBuilding = mem.entityType === 'building'
+      const radius = isBuilding ? 5 : 2.5
+      // 敌方记忆使用蓝色，稍暗淡
+      const dotColor = 0x5588E9
+      const alpha = vis === 1 ? 0.6 : 0.4 // 已探索区稍亮，未探索区更暗
+
+      fogDotGraphics.circle(mem.x, mem.y, radius)
+      fogDotGraphics.fill({ color: dotColor, alpha })
     }
   }
-  fogGraphics.fill({ color: 0x000000, alpha: fogAlpha })
 }
 
 function renderStaticTileToContainer(container, mapData, col, row, px, py, size) {
@@ -429,8 +536,9 @@ function collectRenderables(state, vp, vw, vh) {
     const sx = e.x - vp.x, sy = e.y - vp.y
     if (sx < -m || sx > vw + m || sy < -m || sy > vh + m) continue
 
-    // 黑雾：非玩家实体必须在可见区域内才渲染
-    if (FOG_CONFIG.enabled && e.team !== TEAM.PLAYER) {
+    // 迷雾模式下：非玩家实体必须在可见区域内才渲染
+    // 全明模式下：正常渲染（敌方缩略圆点由迷雾层处理）
+    if (isFogEnabled() && e.team !== TEAM.PLAYER) {
       const tileX = e.entityType === 'building' ? e.tileX + e.size.w / 2 : Math.floor(e.x / TILE_SIZE)
       const tileY = e.entityType === 'building' ? e.tileY + e.size.h / 2 : Math.floor(e.y / TILE_SIZE)
       const vis = getTileVisibility(tileX, tileY)
@@ -467,7 +575,8 @@ function updateEntitySprite(item, isSelected, vp) {
   }
 
   // 排序：设置 zIndex 为 y 坐标实现深度排序
-  data.container.zIndex = item.y
+  // 单位在同 y 坐标时始终排在建筑上方，避免血条被建筑精灵覆盖
+  data.container.zIndex = item.y + (entity.entityType === 'unit' ? 100000 : 0)
 }
 
 function createEntitySprite(entity) {
@@ -475,9 +584,9 @@ function createEntitySprite(entity) {
   container.sortableChildren = true
 
   if (entity.entityType === 'building') {
-    return { container, type: 'building', sprites: [], hpBar: null, buildBar: null, carryIndicator: null }
+    return { container, type: 'building', sprites: [], hpBar: null, buildBar: null }
   } else {
-    return { container, type: 'unit', sprite: null, hpBar: null, carryIndicator: null }
+    return { container, type: 'unit', sprite: null, hpBar: null }
   }
 }
 
@@ -519,28 +628,44 @@ function updateBuildingSprite(data, b, isSelected) {
     data.sprites[0].height = h
   }
 
-  // 建造进度条
+  // 建造中的建筑：合并显示建造进度+血量（单条）
+  // 已完成的建筑：仅显示血条
   if (!b.isBuilt) {
+    // 合并条：底色为建造进度(橙色)，叠加当前HP比例(绿色)
+    // 如果满血则只显示建造进度，受伤时HP部分变绿(或红)提示
     if (!data.buildBar) {
       const g = new Graphics()
       g.label = 'buildBar'
+      g.zIndex = 999  // 确保在建筑精灵上方
       data.container.addChild(g)
       data.buildBar = g
     }
-    const bw = w * 0.8, bh = 6, bxx = (w - bw) / 2, byy = -10
+    const bw = Math.min(w * 0.8, 36), bh = 4
+    const bxx = w / 2 - bw / 2, byy = -10
+    const progressRatio = Math.max(0, Math.min(1, b.buildProgress / 100))
+    const hpRatio = Math.max(0, Math.min(1, b.hp / b.maxHp))
+    const hpColor = hpRatio > 0.6 ? 0x4caf50 : hpRatio > 0.3 ? 0xff9800 : 0xf44336
     data.buildBar.clear()
+    // 黑色背景
     data.buildBar.rect(bxx - 1, byy - 1, bw + 2, bh + 2).fill({ color: 0x000000, alpha: 0.6 })
-    data.buildBar.rect(bxx, byy, bw * b.buildProgress / 100, bh).fill({ color: 0xff9800 })
+    // 建造进度（橙色底）
+    data.buildBar.rect(bxx, byy, bw * progressRatio, bh).fill({ color: 0xff9800 })
+    // HP叠加（绿色/橙色/红色），宽度不超过建造进度
+    if (hpRatio < 1) {
+      const hpWidth = bw * progressRatio * hpRatio
+      data.buildBar.rect(bxx, byy, hpWidth, bh).fill({ color: hpColor })
+    }
     data.buildBar.visible = true
-  } else if (data.buildBar) {
-    data.buildBar.visible = false
-  }
-
-  // HP 条
-  if (b.hp < b.maxHp || isSelected) {
-    drawEntityHpBar(data, w / 2, 0, b.hp, b.maxHp, w)
-  } else if (data.hpBar) {
-    data.hpBar.visible = false
+    // 建造中不单独显示HP条
+    if (data.hpBar) data.hpBar.visible = false
+  } else {
+    // 已完成建筑：隐藏建造条，按需显示HP条
+    if (data.buildBar) data.buildBar.visible = false
+    if (b.hp < b.maxHp || isSelected) {
+      drawEntityHpBar(data, w / 2, 0, b.hp, b.maxHp, w)
+    } else if (data.hpBar) {
+      data.hpBar.visible = false
+    }
   }
 }
 
@@ -565,38 +690,14 @@ function updateUnitSprite(data, u, isSelected, vp) {
   }
 
   // HP 条 - 以精灵在容器内的实际位置为基准
+  // 选中时或非满血时显示血条，避免频繁显隐导致闪烁
   const spriteOffsetX = data.sprite.x
   const spriteOffsetY = data.sprite.y
-  if (isSelected) {
+  const showHpBar = isSelected || u.hp < u.maxHp
+  if (showHpBar) {
     drawEntityHpBar(data, spriteOffsetX + uw / 2, spriteOffsetY, u.hp, u.maxHp, uw)
   } else if (data.hpBar) {
     data.hpBar.visible = false
-  }
-
-  // 携带资源指示器 - 显示负重进度条（位于血条下方，避免重叠）
-  if (u.carrying) {
-    if (!data.carryIndicator) {
-      const g = new Graphics()
-      g.label = 'carry'
-      data.container.addChild(g)
-      data.carryIndicator = g
-    }
-    const colors = { food: 0xe74c3c, wood: 0x8d6e63, gold: 0xffd700, stone: 0x9e9e9e }
-    const barW = 16, barH = 3
-    const barX = spriteOffsetX + uw / 2 - barW / 2
-    // 血条在 spriteOffsetY - 8，高度4px；负重条在血条下方2px处
-    const hpBarBottom = spriteOffsetY - 8 + 4 + 2
-    const barY = isSelected ? hpBarBottom : spriteOffsetY - 8
-    const maxC = u.maxCarry || 20
-    const ratio = Math.min(1, u.carrying.amount / maxC)
-    data.carryIndicator.clear()
-    // 背景
-    data.carryIndicator.rect(barX - 0.5, barY - 0.5, barW + 1, barH + 1).fill({ color: 0x000000, alpha: 0.6 })
-    // 填充
-    data.carryIndicator.rect(barX, barY, barW * ratio, barH).fill({ color: colors[u.carrying.type] || 0xffffff })
-    data.carryIndicator.visible = true
-  } else if (data.carryIndicator) {
-    data.carryIndicator.visible = false
   }
 }
 
@@ -604,6 +705,7 @@ function drawEntityHpBar(data, cx, topY, hp, maxHp, width) {
   if (!data.hpBar) {
     const g = new Graphics()
     g.label = 'hpBar'
+    g.zIndex = 999  // 确保血条在容器内接近最上层
     data.container.addChild(g)
     data.hpBar = g
   }
@@ -786,7 +888,9 @@ export function invalidateStaticCache() {
   const { tileLayer } = getLayers()
   tileLayer.removeChildren()
 
-  // 重置黑雾 Graphics
+  // 重置迷雾圆点 Graphics
+  fogDotGraphics = null
+  lastDotVersion = -1
   fogGraphics = null
   lastFogVersion = -1
   const { fogLayer } = getLayers()
@@ -807,6 +911,10 @@ export function clearEntitySprites() {
     s.destroy()
   }
   projectileSprites.length = 0
+
+  // 重置迷雾圆点 Graphics
+  fogDotGraphics = null
+  lastDotVersion = -1
 
   // 重置黑雾 Graphics
   fogGraphics = null
