@@ -13,8 +13,10 @@ import { getState, getMapData } from '../core/GameState.js'
 import {
   MAP_CONFIG, TERRAIN, TERRAIN_COLORS, ROAD, ROAD_IMAGES,
   TILE_IMAGES, RESOURCE_DEFS, ENTITY_STATE, UNIT_DISPLAY_SIZE,
+  FOG_CONFIG, TEAM,
 } from '../core/constants.js'
 import { getTexture, getLayers, renderFrame, getPixiApp } from '../core/PixiApp.js'
+import { getFogData, getTileVisibility } from '../systems/FogOfWar.js'
 import {
   Container, Sprite, Graphics, RenderTexture, Texture,
 } from 'pixi.js'
@@ -90,10 +92,13 @@ export function renderGame(alpha, projectiles) {
     }
   }
 
-  // 5. 弹道
+  // 5. 黑雾
+  renderFogLayer(vp)
+
+  // 6. 弹道
   renderProjectiles(projectiles)
 
-  // 6. 手动渲染
+  // 7. 手动渲染
   renderFrame()
 }
 
@@ -157,6 +162,63 @@ function renderStaticLayer(vp) {
 
     const cacheSprite = tileLayer.children[0]
     cacheSprite.position.set(csCol * TILE_SIZE, csRow * TILE_SIZE)
+  }
+}
+
+// ===== 黑雾层 =====
+let fogGraphics = null
+
+function renderFogLayer(vp) {
+  if (!FOG_CONFIG.enabled) {
+    // 黑雾关闭时清空雾层
+    if (fogGraphics) {
+      fogGraphics.clear()
+      fogGraphics.visible = false
+    }
+    return
+  }
+
+  const { fogExplored, fogVisible } = getFogData()
+  if (!fogExplored || !fogVisible) return
+
+  const { fogLayer } = getLayers()
+
+  // 确保 Graphics 对象存在
+  if (!fogGraphics) {
+    fogGraphics = new Graphics()
+    fogGraphics.label = 'fog'
+    fogLayer.addChild(fogGraphics)
+  }
+
+  fogGraphics.clear()
+  fogGraphics.visible = true
+
+  const startCol = Math.max(0, Math.floor(vp.x / TILE_SIZE))
+  const endCol = Math.min(COLS, Math.ceil((vp.x + window.innerWidth) / TILE_SIZE))
+  const startRow = Math.max(0, Math.floor(vp.y / TILE_SIZE))
+  const endRow = Math.min(ROWS, Math.ceil((vp.y + window.innerHeight) / TILE_SIZE))
+
+  const fogAlpha = FOG_CONFIG.fogAlpha
+  const exploredAlpha = FOG_CONFIG.exploredAlpha
+
+  // 批量绘制：先画所有未探索的，再画所有已探索灰雾的
+  // 这样可以减少 fill 状态切换
+  for (let row = startRow; row < endRow; row++) {
+    for (let col = startCol; col < endCol; col++) {
+      const idx = row * COLS + col
+      if (fogVisible[idx]) continue // 当前可见 - 不画黑雾
+
+      const px = col * TILE_SIZE
+      const py = row * TILE_SIZE
+
+      if (fogExplored[idx]) {
+        fogGraphics.rect(px, py, TILE_SIZE, TILE_SIZE)
+        fogGraphics.fill({ color: 0x000000, alpha: exploredAlpha })
+      } else {
+        fogGraphics.rect(px, py, TILE_SIZE, TILE_SIZE)
+        fogGraphics.fill({ color: 0x000000, alpha: fogAlpha })
+      }
+    }
   }
 }
 
@@ -285,6 +347,15 @@ function collectRenderables(state, vp, vw, vh) {
     if (e.state === ENTITY_STATE.DEAD) continue
     const sx = e.x - vp.x, sy = e.y - vp.y
     if (sx < -m || sx > vw + m || sy < -m || sy > vh + m) continue
+
+    // 黑雾：非玩家实体必须在可见区域内才渲染
+    if (FOG_CONFIG.enabled && e.team !== TEAM.PLAYER) {
+      const tileX = e.entityType === 'building' ? e.tileX + e.size.w / 2 : Math.floor(e.x / TILE_SIZE)
+      const tileY = e.entityType === 'building' ? e.tileY + e.size.h / 2 : Math.floor(e.y / TILE_SIZE)
+      const vis = getTileVisibility(tileX, tileY)
+      if (vis < 2) continue // 不在当前视野内，不渲染敌方实体
+    }
+
     res.push({ y: e.y, kind: e.entityType, entity: e })
   }
   return res
@@ -514,6 +585,11 @@ export function invalidateStaticCache() {
   // 清空 tileLayer
   const { tileLayer } = getLayers()
   tileLayer.removeChildren()
+
+  // 重置黑雾 Graphics
+  fogGraphics = null
+  const { fogLayer } = getLayers()
+  if (fogLayer) fogLayer.removeChildren()
 }
 
 /**
@@ -530,4 +606,7 @@ export function clearEntitySprites() {
     s.destroy()
   }
   projectileSprites.length = 0
+
+  // 重置黑雾 Graphics
+  fogGraphics = null
 }

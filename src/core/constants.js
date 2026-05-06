@@ -328,6 +328,15 @@ export const ROAD_IMAGES = {
 
 export const ROAD_COLOR = '#b0976a'
 
+// ========== 黑雾系统配置 ==========
+export const FOG_CONFIG = {
+  enabled: true,              // 是否启用黑雾（可通过 setFogEnabled 切换）
+  unitVisionRange: 6,         // 单位视野（瓦片数）
+  buildingVisionRange: 8,     // 建筑视野（瓦片数）
+  fogAlpha: 0.92,             // 未探索区域黑雾透明度
+  exploredAlpha: 0.45,        // 已探索但不在视野内的灰雾透明度
+}
+
 // ========== 所有需要预加载的图片路径 ==========
 export function getAllImagePaths() {
   const paths = new Set()

@@ -9,6 +9,7 @@ import { updateCombat, updateProjectiles } from '../systems/CombatSystem.js'
 import { updateGather } from '../systems/GatherSystem.js'
 import { updateBuild } from '../systems/BuildSystem.js'
 import { updateAI } from '../systems/AISystem.js'
+import { updateFog } from '../systems/FogOfWar.js'
 import { MAP_CONFIG } from '../core/constants.js'
 
 const TICK_RATE = 30
@@ -67,6 +68,7 @@ function updateAllSystems(dt) {
   updateBuild(dt)
   updateAI(dt)
   updateProjectiles(projectiles, dt)
+  updateFog()
 }
 
 // ===== 边缘滚动 =====

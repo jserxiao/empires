@@ -12,6 +12,7 @@ import {
   MAP_CONFIG, TERRAIN, ROAD, ENTITY_STATE, TEAM,
   RESOURCE_TYPE, UNIT_DEFS, BUILDING_DEFS, UNIT_TYPE, BUILDING_TYPE,
 } from './constants.js'
+import { initFog, resetFog } from '../systems/FogOfWar.js'
 
 const { COLS, ROWS, TILE_SIZE } = MAP_CONFIG
 
@@ -116,6 +117,10 @@ export function initMap(mapData, towns) {
   }
 
   state.mapReady = true
+
+  // 初始化黑雾系统
+  initFog()
+
   scheduleNotify()
 }
 
@@ -585,5 +590,6 @@ export function resetGameState() {
   state.population[TEAM.PLAYER] = { current: 0, capacity: 0 }
   state.population[TEAM.ENEMY] = { current: 0, capacity: 0 }
   _nextId = 1
+  resetFog()
   scheduleNotify()
 }

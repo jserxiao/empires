@@ -17,6 +17,7 @@ let textures = {}
 // 层容器引用（由 GameRenderer 使用）
 let worldContainer = null // 世界根容器，跟随视口移动
 let tileLayer = null      // 地形/道路/资源静态层
+let fogLayer = null       // 黑雾覆盖层
 let entityLayer = null    // 建筑/单位动态层
 let effectLayer = null    // 弹道/特效层
 let uiLayer = null        // 选框/UI层（屏幕坐标）
@@ -55,12 +56,14 @@ export async function initPixiApp(container) {
   // 创建层结构
   worldContainer = new Container({ label: 'world' })
   tileLayer = new Container({ label: 'tiles' })
+  fogLayer = new Container({ label: 'fog' })
   entityLayer = new Container({ label: 'entities' })
   entityLayer.sortableChildren = true
   effectLayer = new Container({ label: 'effects' })
   uiLayer = new Container({ label: 'ui' })
 
   worldContainer.addChild(tileLayer)
+  worldContainer.addChild(fogLayer)
   worldContainer.addChild(entityLayer)
   worldContainer.addChild(effectLayer)
   app.stage.addChild(worldContainer)
@@ -115,7 +118,7 @@ export function getPixiApp() {
  * 获取层容器
  */
 export function getLayers() {
-  return { worldContainer, tileLayer, entityLayer, effectLayer, uiLayer }
+  return { worldContainer, tileLayer, fogLayer, entityLayer, effectLayer, uiLayer }
 }
 
 /**
@@ -153,6 +156,7 @@ export function destroyPixiApp() {
   textures = {}
   worldContainer = null
   tileLayer = null
+  fogLayer = null
   entityLayer = null
   effectLayer = null
   uiLayer = null

@@ -5,7 +5,8 @@ import { renderGame, renderSelectionBox, initRenderer, clearEntitySprites } from
 import { handleMouseMove, handleMouseDown, handleMouseUp, getTileInfo, enterBuildMode, cancelBuildMode, getBuildMode } from './game/InputHandler.js'
 import { startMapGeneration, cancelMapGeneration } from './game/MapWorker.js'
 import { initPixiApp, loadTextures, destroyPixiApp, isPixiReady } from './core/PixiApp.js'
-import { MAP_CONFIG, BUILDING_DEFS, UNIT_DEFS } from './core/constants.js'
+import { MAP_CONFIG, BUILDING_DEFS, UNIT_DEFS, FOG_CONFIG } from './core/constants.js'
+import { getFogData } from './systems/FogOfWar.js'
 import './App.css'
 
 const { COLS, ROWS, TILE_SIZE } = MAP_CONFIG
@@ -148,7 +149,24 @@ function App() {
     const mw = mm.width, mh = mm.height, sx = mw / COLS, sy = mh / ROWS
     const imgData = ctx.createImageData(mw, mh)
     const c = { 0:[26,82,118], 1:[41,128,185], 2:[212,172,110], 3:[200,214,160], 4:[82,190,128], 5:[39,174,96], 6:[127,140,141] }
-    for (let y = 0; y < mh; y++) { const row = Math.floor(y / sy); for (let x = 0; x < mw; x++) { const col = Math.floor(x / sx); const i = (y*mw+x)*4; const t = terrain[row*COLS+col]??4; const cc = c[t]||[82,190,128]; imgData.data[i]=cc[0]; imgData.data[i+1]=cc[1]; imgData.data[i+2]=cc[2]; imgData.data[i+3]=255 } }
+
+    // 黑雾数据
+    const fogEnabled = FOG_CONFIG.enabled
+    const { fogExplored, fogVisible } = fogEnabled ? getFogData() : { fogExplored: null, fogVisible: null }
+
+    for (let y = 0; y < mh; y++) { const row = Math.floor(y / sy); for (let x = 0; x < mw; x++) { const col = Math.floor(x / sx); const i = (y*mw+x)*4; const t = terrain[row*COLS+col]??4; const cc = c[t]||[82,190,128];
+      // 黑雾处理
+      if (fogEnabled && fogExplored && fogVisible) {
+        const fidx = row * COLS + col
+        if (!fogExplored[fidx]) {
+          // 未探索 - 深黑
+          imgData.data[i]=10; imgData.data[i+1]=10; imgData.data[i+2]=10; imgData.data[i+3]=255; continue
+        } else if (!fogVisible[fidx]) {
+          // 已探索但不在视野 - 灰色显示
+          imgData.data[i]=Math.floor(cc[0]*0.35); imgData.data[i+1]=Math.floor(cc[1]*0.35); imgData.data[i+2]=Math.floor(cc[2]*0.35); imgData.data[i+3]=255; continue
+        }
+      }
+      imgData.data[i]=cc[0]; imgData.data[i+1]=cc[1]; imgData.data[i+2]=cc[2]; imgData.data[i+3]=255 } }
     ctx.putImageData(imgData, 0, 0)
     const vp = state.viewport
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 1
