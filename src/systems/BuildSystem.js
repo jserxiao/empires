@@ -104,10 +104,10 @@ function resolveTrainType(unitType) {
 
 /**
  * 在建筑周围寻找一个可通行的随机位置生成单位
+ * 船坞生成的战船需要在水面上
  */
 function findSpawnPosition(building, state) {
-  const cx = building.tileX + building.size.w / 2
-  const cy = building.tileY + building.size.h / 2
+  const isShipyard = building.type === 'shipyard'
 
   // 尝试在建筑周围 1~3 格范围内寻找可通行位置
   for (let radius = 1; radius <= 3; radius++) {
@@ -119,9 +119,14 @@ function findSpawnPosition(building, state) {
         const ty = building.tileY + Math.floor(building.size.h / 2) + dy
         if (tx < 0 || tx >= COLS || ty < 0 || ty >= ROWS) continue
         const idx = ty * COLS + tx
-        // 可通行且无资源
         const terrain = state.terrain[idx]
-        if (terrain === 0 || terrain === 1) continue // 水面不可通行
+        // 船坞生成战船：必须在水面（深水/浅水）
+        if (isShipyard) {
+          if (terrain !== 0 && terrain !== 1) continue
+        } else {
+          // 普通建筑生成陆地单位：水面不可通行
+          if (terrain === 0 || terrain === 1) continue
+        }
         if (state.resource[idx]) continue
         // 检查是否有建筑占位
         let blocked = false

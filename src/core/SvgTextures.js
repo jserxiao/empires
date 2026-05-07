@@ -19,6 +19,11 @@ const SVG_SOURCES = [
     width: 1800,
     height: 700,
   },
+  {
+    path: '/Vector/shipsMiscellaneous_vector.svg',
+    width: 1280,
+    height: 720,
+  },
 ]
 
 // 渲染倍率（提高清晰度）
@@ -174,6 +179,10 @@ const SVG_SPRITE_DEFS = {
   // ===== 新建筑 ===== - scifiRTS_vector.svg (source: 1)
   'city_wall':      { source: 1, bbox: [236, 614, 40, 52], colorGroup: 'building' },  // Layer0_144 row7 col3
   'military_camp':  { source: 1, bbox: [1376, 229, 64, 54], colorGroup: 'building' }, // Layer0_55  row3 col15
+  'shipyard':       { source: 1, bbox: [1670, 134, 54, 48], colorGroup: 'building' }, // Layer0_149 row2 col18 (last col of row2)
+
+  // ===== 单位 ===== - shipsMiscellaneous_vector.svg (source: 2)
+  'warship':        { source: 2, bbox: [57, 44, 74, 100], colorGroup: 'building' },  // Layer0_23 row5 col8 (pirate ship with skull)
 
   // ===== 回退映射（用户未提供，复用已有资源）=====
   'berry':         { source: 0, bbox: [1014, 531, 20, 24] }, // Layer0_97  row7 col11 - 浆果丛

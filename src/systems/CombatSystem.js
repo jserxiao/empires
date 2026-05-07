@@ -81,6 +81,16 @@ function processAttack(entity, dt, projectiles) {
     return
   }
 
+  const isShip = entity.type === 'warship'
+
+  // 战船只能攻击水上/岸边目标（简化：只攻击单位，不攻击建筑）
+  if (isShip && target.entityType === 'building') {
+    entity.targetId = null
+    entity.state = ENTITY_STATE.IDLE
+    entity.animState = 'idle'
+    return
+  }
+
   // 计算距离
   let tx, ty
   if (target.entityType === 'building') {
@@ -131,10 +141,10 @@ function processAttack(entity, dt, projectiles) {
       targetCol = Math.floor(tx / TILE_SIZE)
       targetRow = Math.floor(ty / TILE_SIZE)
       excludeId = undefined
-      walkableCheck = createWalkableCheck(state)
+      walkableCheck = isShip ? null : createWalkableCheck(state)
     }
 
-    const gridPath = findPath(state.terrain, startCol, startRow, targetCol, targetRow, walkableCheck)
+    const gridPath = findPath(state.terrain, startCol, startRow, targetCol, targetRow, walkableCheck, { isShip })
     if (gridPath.length >= 2) {
 const _wp = prependCurrentPosition(entity, pathToWorldPath(gridPath))
 entity.path = _wp
@@ -195,6 +205,8 @@ function checkAggro(entity) {
   // 农民不主动攻击，跳过仇恨检查
   if (entity.gatherer) return
 
+  const isShip = entity.type === 'warship'
+
   const aggroRange = entity.aggroRange * TILE_SIZE
 
   // 使用空间索引加速范围查询
@@ -204,6 +216,9 @@ function checkAggro(entity) {
     if (other.entityType !== 'unit' && other.entityType !== 'building') continue
     if (isDead(other)) continue
     if (other.team === entity.team || other.team === TEAM.NEUTRAL) continue
+
+    // 战船不主动攻击建筑
+    if (isShip && other.entityType === 'building') continue
 
     // 计算与目标的距离
     const ox = other.entityType === 'building'
@@ -244,10 +259,10 @@ function checkAggro(entity) {
         targetCol = Math.floor(ox / TILE_SIZE)
         targetRow = Math.floor(oy / TILE_SIZE)
         excludeId = undefined
-        walkableCheck = createWalkableCheck(state)
+        walkableCheck = isShip ? null : createWalkableCheck(state)
       }
 
-      const gridPath = findPath(state.terrain, startCol, startRow, targetCol, targetRow, walkableCheck)
+      const gridPath = findPath(state.terrain, startCol, startRow, targetCol, targetRow, walkableCheck, { isShip })
       if (gridPath.length >= 2) {
 const _wp = prependCurrentPosition(entity, pathToWorldPath(gridPath))
 entity.path = _wp

@@ -208,7 +208,7 @@ function BuildingInfo({ building, buildModeState, onBuildModeChange, onActionDon
 // ===== 单位信息面板 =====
 
 /** 农民可建造的建筑列表 */
-const FARMER_BUILDINGS = ['town_center', 'civilian_house', 'city_wall', 'military_camp']
+const FARMER_BUILDINGS = ['town_center', 'civilian_house', 'city_wall', 'military_camp', 'shipyard']
 
 function UnitInfo({ unit, buildModeState, onBuildModeChange }) {
   const handleBuildMode = (bType) => {

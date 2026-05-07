@@ -8,6 +8,7 @@
  * - 建造待建造的建筑必须通过 commandBuild 指派农民
  * - 建造民房增加人口，建造军营训练士兵
  * - 军营士兵积攒到一定数量后主动进攻敌方
+ * - 有军营后考虑建造船坞，训练战船进行海上进攻
  */
 
 import {
@@ -16,7 +17,7 @@ import {
 } from '../core/GameState.js'
 import { commandMove, commandAttack, commandGather, commandBuild } from './MovementSystem.js'
 import {
-  MAP_CONFIG, TEAM, ENTITY_STATE, UNIT_TYPE, BUILDING_TYPE,
+  MAP_CONFIG, TERRAIN, TEAM, ENTITY_STATE, UNIT_TYPE, BUILDING_TYPE,
   RESOURCE_TYPE, BUILDING_DEFS, UNIT_DEFS,
 } from '../core/constants.js'
 
@@ -87,6 +88,19 @@ function updateTeamAI(team) {
         }
       }
     }
+
+    // 建造船坞（需要军营已建成，且地图有水域）
+    const hasShipyard = buildings.some(b => b.type === BUILDING_TYPE.SHIPYARD && b.isBuilt)
+    const hasShipyardBuilding = buildings.some(b => b.type === BUILDING_TYPE.SHIPYARD)
+    if (hasMilitaryCamp && !hasShipyardBuilding && canAfford(team, BUILDING_DEFS[BUILDING_TYPE.SHIPYARD].cost)) {
+      const pos = findShipyardSpot(state, team)
+      if (pos) {
+        const building = startBuilding(BUILDING_TYPE.SHIPYARD, pos.x, pos.y, team)
+        if (building) {
+          assignBuildersToBuilding(building, units, state)
+        }
+      }
+    }
   }
 
   // 军营训练士兵（交替训练执戟卫士和铁甲卫士）
@@ -105,6 +119,22 @@ function updateTeamAI(team) {
 
         if (canAfford(team, UNIT_DEFS[unitType].cost)) {
           startTraining(camp.id, unitType)
+        }
+      }
+    }
+  }
+
+  // 船坞训练战船
+  const hasShipyard = buildings.some(b => b.type === BUILDING_TYPE.SHIPYARD && b.isBuilt)
+  if (hasShipyard) {
+    const shipyard = buildings.find(b => b.type === BUILDING_TYPE.SHIPYARD && b.isBuilt)
+    if (shipyard && pop.current < pop.capacity) {
+      const trainingQueue = state.trainingQueues.get(shipyard.id) || []
+      const warships = units.filter(u => u.type === UNIT_TYPE.WARSHIP)
+      // 战船训练较慢且昂贵，限制最大数量
+      if (trainingQueue.length < 1 && warships.length < 3) {
+        if (canAfford(team, UNIT_DEFS[UNIT_TYPE.WARSHIP].cost)) {
+          startTraining(shipyard.id, UNIT_TYPE.WARSHIP)
         }
       }
     }
@@ -132,16 +162,29 @@ function updateTeamAI(team) {
       s.state === ENTITY_STATE.IDLE || s.state === ENTITY_STATE.MOVING
     )
     if (idleSoldiers.length >= 2) {
+      // 分别处理陆地士兵和战船
+      const idleLandSoldiers = idleSoldiers.filter(s => s.type !== UNIT_TYPE.WARSHIP)
+      const idleWarships = idleSoldiers.filter(s => s.type === UNIT_TYPE.WARSHIP)
+
       // 寻找敌方实体
       const enemyEntities = []
       for (const e of state.entities.values()) {
         if (e.team === TEAM.PLAYER && e.state !== ENTITY_STATE.DEAD) enemyEntities.push(e)
       }
-      if (enemyEntities.length > 0) {
-        // 优先攻击建筑，其次攻击单位
+
+      // 陆地士兵进攻：优先攻击建筑，其次攻击单位
+      if (idleLandSoldiers.length >= 2 && enemyEntities.length > 0) {
         const enemyBuildings = enemyEntities.filter(e => e.entityType === 'building')
         const target = enemyBuildings.length > 0 ? enemyBuildings[0] : enemyEntities[0]
-        commandAttack(idleSoldiers.map(s => s.id), target.id)
+        commandAttack(idleLandSoldiers.map(s => s.id), target.id)
+      }
+
+      // 战船进攻：只攻击敌方单位（不攻击建筑）
+      if (idleWarships.length >= 1 && enemyEntities.length > 0) {
+        const enemyUnits = enemyEntities.filter(e => e.entityType === 'unit')
+        if (enemyUnits.length > 0) {
+          commandAttack(idleWarships.map(s => s.id), enemyUnits[0].id)
+        }
       }
     }
   }
@@ -253,7 +296,7 @@ function findBuildSpot(state, team, w, h) {
         for (let by = 0; by < h && canBuild; by++) {
           for (let bx = 0; bx < w && canBuild; bx++) {
             const idx = (ny + by) * COLS + (nx + bx)
-            if (state.terrain[idx] === 0 || state.terrain[idx] === 1) canBuild = false
+            if (state.terrain[idx] === TERRAIN.DEEP_WATER || state.terrain[idx] === TERRAIN.SHALLOW_WATER) canBuild = false
             if (state.resource[idx]) canBuild = false
           }
         }
@@ -267,6 +310,76 @@ function findBuildSpot(state, team, w, h) {
         }
 
         if (canBuild) return { x: nx, y: ny }
+      }
+    }
+  }
+  return null
+}
+
+/**
+ * 寻找船坞建造位置
+ * 船坞需要建在靠近水域的陆地上（紧邻深水或浅水）
+ * @param {object} state - 游戏状态
+ * @param {number} team - 队伍
+ * @returns {{x: number, y: number}|null}
+ */
+function findShipyardSpot(state, team) {
+  const ownBuildings = []
+  for (const b of state.buildings.values()) {
+    if (b.team === team) ownBuildings.push(b)
+  }
+  if (ownBuildings.length === 0) return null
+
+  const center = ownBuildings[0]
+  const cx = center.tileX, cy = center.tileY
+  const w = 2, h = 1  // 船坞尺寸
+  const SPACING = 1
+
+  for (let r = 1; r < 40; r++) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue
+        const nx = cx + dx, ny = cy + dy
+        if (nx < 1 || nx + w >= COLS - 1 || ny + h >= ROWS - 1) continue
+
+        // 检查建筑区域本身不在水上、没有资源
+        let canBuild = true
+        for (let by = 0; by < h && canBuild; by++) {
+          for (let bx = 0; bx < w && canBuild; bx++) {
+            const idx = (ny + by) * COLS + (nx + bx)
+            const t = state.terrain[idx]
+            if (t === TERRAIN.DEEP_WATER || t === TERRAIN.SHALLOW_WATER) canBuild = false
+            if (state.resource[idx]) canBuild = false
+          }
+        }
+        if (!canBuild) continue
+
+        // 检查建筑周围是否紧邻水域（至少一个相邻格子是水）
+        let nearWater = false
+        for (let by = -1; by <= h && !nearWater; by++) {
+          for (let bx = -1; bx <= w && !nearWater; bx++) {
+            // 只检查边缘外侧
+            if (by >= 0 && by < h && bx >= 0 && bx < w) continue
+            const wx = nx + bx, wy = ny + by
+            if (wx < 0 || wx >= COLS || wy < 0 || wy >= ROWS) continue
+            const t = state.terrain[wy * COLS + wx]
+            if (t === TERRAIN.DEEP_WATER || t === TERRAIN.SHALLOW_WATER) {
+              nearWater = true
+            }
+          }
+        }
+        if (!nearWater) continue
+
+        // 检查与已有建筑的间距
+        for (const b of state.buildings.values()) {
+          if (nx < b.tileX + b.size.w + SPACING && nx + w + SPACING > b.tileX &&
+              ny < b.tileY + b.size.h + SPACING && ny + h + SPACING > b.tileY) {
+            canBuild = false; break
+          }
+        }
+        if (!canBuild) continue
+
+        return { x: nx, y: ny }
       }
     }
   }

@@ -23,28 +23,39 @@ const DIRS = [
 ]
 
 const TERRAIN_COST = new Float32Array(8)
-TERRAIN_COST[TERRAIN.DEEP_WATER] = 999
-TERRAIN_COST[TERRAIN.SHALLOW_WATER] = 999
+TERRAIN_COST[TERRAIN.DEEP_WATER] = 1.0
+TERRAIN_COST[TERRAIN.SHALLOW_WATER] = 1.0
 TERRAIN_COST[TERRAIN.SAND] = 1.5
 TERRAIN_COST[TERRAIN.EMPTY] = 1.0
 TERRAIN_COST[TERRAIN.GRASS] = 1.0
 TERRAIN_COST[TERRAIN.FOREST] = 1.8
 TERRAIN_COST[TERRAIN.MOUNTAIN] = 3.0
 
-export function findPath(terrainGrid, sx, sy, tx, ty, walkableCheck) {
+export function findPath(terrainGrid, sx, sy, tx, ty, walkableCheck, options = {}) {
   if (sx < 0 || sx >= COLS || sy < 0 || sy >= ROWS) return [{ x: sx, y: sy }]
   if (tx < 0 || tx >= COLS || ty < 0 || ty >= ROWS) return [{ x: sx, y: sy }]
 
+  const isShip = options.isShip || false
+
   const startTerrain = terrainGrid[sy * COLS + sx]
-  if (startTerrain === TERRAIN.DEEP_WATER || startTerrain === TERRAIN.SHALLOW_WATER) {
+  if (!isShip && (startTerrain === TERRAIN.DEEP_WATER || startTerrain === TERRAIN.SHALLOW_WATER)) {
+    return [{ x: sx, y: sy }]
+  }
+  if (isShip && startTerrain !== TERRAIN.DEEP_WATER && startTerrain !== TERRAIN.SHALLOW_WATER) {
     return [{ x: sx, y: sy }]
   }
 
   let actualTX = tx, actualTY = ty
   const targetTerrain = terrainGrid[ty * COLS + tx]
-  if (targetTerrain === TERRAIN.DEEP_WATER || targetTerrain === TERRAIN.SHALLOW_WATER ||
-      (walkableCheck && !walkableCheck(tx, ty))) {
+  if (!isShip && (targetTerrain === TERRAIN.DEEP_WATER || targetTerrain === TERRAIN.SHALLOW_WATER ||
+      (walkableCheck && !walkableCheck(tx, ty)))) {
     const nearest = findNearestWalkable(terrainGrid, tx, ty, walkableCheck)
+    if (!nearest) return [{ x: sx, y: sy }]
+    actualTX = nearest.x
+    actualTY = nearest.y
+  }
+  if (isShip && targetTerrain !== TERRAIN.DEEP_WATER && targetTerrain !== TERRAIN.SHALLOW_WATER) {
+    const nearest = findNearestWater(terrainGrid, tx, ty)
     if (!nearest) return [{ x: sx, y: sy }]
     actualTX = nearest.x
     actualTY = nearest.y
@@ -102,14 +113,20 @@ export function findPath(terrainGrid, sx, sy, tx, ty, walkableCheck) {
       if (closed[nIdx]) continue
 
       const terrain = terrainGrid[nIdx]
-      if (terrain === TERRAIN.DEEP_WATER || terrain === TERRAIN.SHALLOW_WATER) continue
+      if (!isShip && (terrain === TERRAIN.DEEP_WATER || terrain === TERRAIN.SHALLOW_WATER)) continue
+      if (isShip && terrain !== TERRAIN.DEEP_WATER && terrain !== TERRAIN.SHALLOW_WATER) continue
       if (walkableCheck && !walkableCheck(nx, ny)) continue
 
       if (dir.dx !== 0 && dir.dy !== 0) {
         const adj1 = terrainGrid[cy * COLS + nx]
         const adj2 = terrainGrid[ny * COLS + cx]
-        if (adj1 === TERRAIN.DEEP_WATER || adj1 === TERRAIN.SHALLOW_WATER) continue
-        if (adj2 === TERRAIN.DEEP_WATER || adj2 === TERRAIN.SHALLOW_WATER) continue
+        if (!isShip) {
+          if (adj1 === TERRAIN.DEEP_WATER || adj1 === TERRAIN.SHALLOW_WATER) continue
+          if (adj2 === TERRAIN.DEEP_WATER || adj2 === TERRAIN.SHALLOW_WATER) continue
+        } else {
+          if (adj1 !== TERRAIN.DEEP_WATER && adj1 !== TERRAIN.SHALLOW_WATER) continue
+          if (adj2 !== TERRAIN.DEEP_WATER && adj2 !== TERRAIN.SHALLOW_WATER) continue
+        }
         if (walkableCheck) {
           if (!walkableCheck(nx, cy) || !walkableCheck(cx, ny)) continue
         }
@@ -170,6 +187,29 @@ function findNearestWalkable(terrainGrid, tx, ty, walkableCheck) {
   return null
 }
 
+function findNearestWater(terrainGrid, tx, ty) {
+  if (tx >= 0 && tx < COLS && ty >= 0 && ty < ROWS) {
+    const t = terrainGrid[ty * COLS + tx]
+    if (t === TERRAIN.DEEP_WATER || t === TERRAIN.SHALLOW_WATER) {
+      return { x: tx, y: ty }
+    }
+  }
+  for (let r = 1; r < 15; r++) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue
+        const nx = tx + dx, ny = ty + dy
+        if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) continue
+        const t = terrainGrid[ny * COLS + nx]
+        if (t === TERRAIN.DEEP_WATER || t === TERRAIN.SHALLOW_WATER) {
+          return { x: nx, y: ny }
+        }
+      }
+    }
+  }
+  return null
+}
+
 export function pathToWorldPath(gridPath) {
   return gridPath.map(p => ({
     x: p.x * TILE_SIZE + TILE_SIZE / 2,
@@ -187,11 +227,11 @@ export function computePathLength(worldPath) {
   return total
 }
 
-export function distributeTargets(terrainGrid, centerCol, centerRow, count, walkableCheck) {
+export function distributeTargets(terrainGrid, centerCol, centerRow, count, walkableCheck, isShip = false) {
   const targets = []
   const used = new Set()
 
-  if (isWalkable(terrainGrid, centerCol, centerRow, walkableCheck)) {
+  if (isWalkable(terrainGrid, centerCol, centerRow, walkableCheck, isShip)) {
     targets.push({ col: centerCol, row: centerRow })
     used.add(centerCol * 10000 + centerRow)
   }
@@ -204,7 +244,7 @@ export function distributeTargets(terrainGrid, centerCol, centerRow, count, walk
         const nx = centerCol + dx, ny = centerRow + dy
         const key = nx * 10000 + ny
         if (used.has(key)) continue
-        if (isWalkable(terrainGrid, nx, ny, walkableCheck)) {
+        if (isWalkable(terrainGrid, nx, ny, walkableCheck, isShip)) {
           targets.push({ col: nx, row: ny })
           used.add(key)
           if (targets.length >= count) break
@@ -217,10 +257,11 @@ export function distributeTargets(terrainGrid, centerCol, centerRow, count, walk
   return targets
 }
 
-function isWalkable(terrainGrid, x, y, walkableCheck) {
+function isWalkable(terrainGrid, x, y, walkableCheck, isShip = false) {
   if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return false
   const t = terrainGrid[y * COLS + x]
-  if (t === TERRAIN.DEEP_WATER || t === TERRAIN.SHALLOW_WATER) return false
+  if (!isShip && (t === TERRAIN.DEEP_WATER || t === TERRAIN.SHALLOW_WATER)) return false
+  if (isShip && t !== TERRAIN.DEEP_WATER && t !== TERRAIN.SHALLOW_WATER) return false
   if (walkableCheck && !walkableCheck(x, y)) return false
   return true
 }

@@ -614,7 +614,10 @@ function updateBuildingSprite(data, b, isSelected) {
 
   // 更新双图建筑布局
   if (b.images && b.images.length >= 2 && data.sprites.length >= 2) {
-    const imgW = TILE_SIZE, imgH = TILE_SIZE
+    // 城镇中心：双图各占半格高度，整体占满宽度
+    const isTownCenter = b.type === 'town_center'
+    const imgW = isTownCenter ? w : TILE_SIZE
+    const imgH = isTownCenter ? h / 2 : TILE_SIZE
     const ox = (w - imgW) / 2
     data.sprites[0].position.set(ox, 0)
     data.sprites[0].width = imgW
@@ -687,6 +690,20 @@ function updateUnitSprite(data, u, isSelected, vp) {
     sprite.y = (TILE_SIZE * 0.8 - uh) / 2
     data.container.addChild(sprite)
     data.sprite = sprite
+  }
+
+  // 战船：根据移动方向旋转精灵（SVG纹理是竖直的）
+  if (u.type === 'warship' && data.sprite) {
+    // animDir: 0=上 1=右 2=下 3=左
+    const dirRotations = [0, Math.PI / 2, Math.PI, -Math.PI / 2]
+    data.sprite.rotation = dirRotations[u.animDir] || 0
+    // 旋转后重新居中
+    data.sprite.x = (TILE_SIZE * 0.8) / 2
+    data.sprite.y = (TILE_SIZE * 0.8) / 2
+    data.sprite.anchor.set(0.5, 0.5)
+  } else if (data.sprite && data.sprite.anchor.x !== 0) {
+    // 非战船确保 anchor 是默认值
+    data.sprite.anchor.set(0, 0)
   }
 
   // HP 条 - 以精灵在容器内的实际位置为基准

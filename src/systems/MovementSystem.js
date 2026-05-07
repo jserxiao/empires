@@ -39,24 +39,24 @@ export function commandMove(unitIds, targetCol, targetRow) {
   const state = getState()
   const { terrain } = getMapData()
 
-  const walkableCheck = createWalkableCheck(state)
-
-  // 分配目标位置
-  const targets = distributeTargets(terrain, targetCol, targetRow, unitIds.length, walkableCheck)
-
   for (let i = 0; i < unitIds.length; i++) {
     const entity = state.entities.get(unitIds[i])
     if (!entity || entity.entityType !== 'unit') continue
     if (entity.state === ENTITY_STATE.DEAD) continue
 
-    const target = targets[i]
+    const isShip = entity.type === 'warship'
+    const walkableCheck = isShip ? null : createWalkableCheck(state)
+
+    // 分配目标位置
+    const targets = distributeTargets(terrain, targetCol, targetRow, 1, walkableCheck, isShip)
+    const target = targets[0]
     if (!target) continue
 
     // 起点格子
     const startCol = Math.floor(entity.x / TILE_SIZE)
     const startRow = Math.floor(entity.y / TILE_SIZE)
 
-    const gridPath = findPath(terrain, startCol, startRow, target.col, target.row, walkableCheck)
+    const gridPath = findPath(terrain, startCol, startRow, target.col, target.row, walkableCheck, { isShip })
     if (gridPath.length < 2) continue
 
     const worldPath = prependCurrentPosition(entity, pathToWorldPath(gridPath))
@@ -87,14 +87,15 @@ export function commandAttack(unitIds, targetId) {
   const target = state.entities.get(targetId)
   if (!target) return
 
-  // 如果目标是建筑，寻路时排除该建筑以便走近攻击
-  const excludeId = target.entityType === 'building' ? targetId : undefined
-  const walkableCheck = createWalkableCheck(state, excludeId)
-
   for (const id of unitIds) {
     const entity = state.entities.get(id)
     if (!entity || entity.entityType !== 'unit') continue
     if (entity.state === ENTITY_STATE.DEAD) continue
+
+    const isShip = entity.type === 'warship'
+    // 如果目标是建筑，寻路时排除该建筑以便走近攻击
+    const excludeId = target.entityType === 'building' ? targetId : undefined
+    const walkableCheck = isShip ? null : createWalkableCheck(state, excludeId)
 
     entity.targetId = targetId
     entity.state = ENTITY_STATE.MOVING
@@ -110,6 +111,8 @@ export function commandAttack(unitIds, targetId) {
     let targetCol, targetRow
     if (target.entityType === 'building') {
       // 建筑目标：寻路到建筑周围最近的相邻可通行格子，避免走进建筑内部
+      // 战船不能攻击陆地建筑（跳过）
+      if (isShip) continue
       const adjacent = findAdjacentWalkable(state, target, startCol, startRow, walkableCheck)
       if (adjacent) {
         targetCol = adjacent.col
@@ -124,7 +127,7 @@ export function commandAttack(unitIds, targetId) {
       targetRow = Math.floor(target.y / TILE_SIZE)
     }
 
-    const gridPath = findPath(state.terrain, startCol, startRow, targetCol, targetRow, walkableCheck)
+    const gridPath = findPath(state.terrain, startCol, startRow, targetCol, targetRow, walkableCheck, { isShip })
     if (gridPath.length >= 2) {
 const _wp = prependCurrentPosition(entity, pathToWorldPath(gridPath))
 entity.path = _wp
@@ -321,6 +324,8 @@ function moveAlongPath(entity, dt) {
   const oldX = entity.x
   const oldY = entity.y
 
+  const isShip = entity.type === 'warship'
+
   // 匀速移动
   const speed = entity.moveSpeed
   let remainingDist = speed * dt
@@ -360,12 +365,22 @@ function moveAlongPath(entity, dt) {
       const state = getState()
       const targetTileX = Math.floor(to.x / TILE_SIZE)
       const targetTileY = Math.floor(to.y / TILE_SIZE)
-      const walkableCheck = createWalkableCheck(state)
-      if (!walkableCheck(targetTileX, targetTileY)) {
-        entity.path = null
-        entity.state = ENTITY_STATE.IDLE
-        entity.animState = 'idle'
-        break
+      if (!isShip) {
+        const walkableCheck = createWalkableCheck(state)
+        if (!walkableCheck(targetTileX, targetTileY)) {
+          entity.path = null
+          entity.state = ENTITY_STATE.IDLE
+          entity.animState = 'idle'
+          break
+        }
+      } else {
+        const terrain = state.terrain[targetTileY * COLS + targetTileX]
+        if (terrain !== TERRAIN.DEEP_WATER && terrain !== TERRAIN.SHALLOW_WATER) {
+          entity.path = null
+          entity.state = ENTITY_STATE.IDLE
+          entity.animState = 'idle'
+          break
+        }
       }
 
       remainingDist -= remainingInSeg
@@ -397,12 +412,22 @@ function moveAlongPath(entity, dt) {
       const oldTileX = Math.floor(entity.x / TILE_SIZE)
       const oldTileY = Math.floor(entity.y / TILE_SIZE)
       if (newTileX !== oldTileX || newTileY !== oldTileY) {
-        const walkableCheck = createWalkableCheck(state)
-        if (!walkableCheck(newTileX, newTileY)) {
-          entity.path = null
-          entity.state = ENTITY_STATE.IDLE
-          entity.animState = 'idle'
-          break
+        if (!isShip) {
+          const walkableCheck = createWalkableCheck(state)
+          if (!walkableCheck(newTileX, newTileY)) {
+            entity.path = null
+            entity.state = ENTITY_STATE.IDLE
+            entity.animState = 'idle'
+            break
+          }
+        } else {
+          const terrain = state.terrain[newTileY * COLS + newTileX]
+          if (terrain !== TERRAIN.DEEP_WATER && terrain !== TERRAIN.SHALLOW_WATER) {
+            entity.path = null
+            entity.state = ENTITY_STATE.IDLE
+            entity.animState = 'idle'
+            break
+          }
         }
       }
 

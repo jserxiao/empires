@@ -298,11 +298,35 @@ export function getBuildMode() { return buildMode }
 function checkBuildLocation(col, row, buildingType) {
   const def = BUILDING_DEFS[buildingType]; if (!def) return false
   const state = getState()
+  const isShipyard = buildingType === 'shipyard'
   for (let dy = 0; dy < def.size.h; dy++) for (let dx = 0; dx < def.size.w; dx++) {
     const cx = col + dx, cy = row + dy
     if (cx < 0 || cx >= COLS || cy < 0 || cy >= ROWS) return false
     const idx = cy * COLS + cx
-    if (state.terrain[idx] === 0 || state.terrain[idx] === 1 || state.resource[idx]) return false
+    const terrain = state.terrain[idx]
+    // 船坞必须建在水边（至少相邻一格是水）
+    if (isShipyard) {
+      if (terrain === 0 || terrain === 1) return false // 船坞不能建在水上
+      if (state.resource[idx]) return false
+    } else {
+      if (terrain === 0 || terrain === 1 || state.resource[idx]) return false
+    }
+  }
+  // 船坞额外检查：必须至少有一格相邻水面
+  if (isShipyard) {
+    let hasWaterNeighbor = false
+    for (let dy = -1; dy <= def.size.h; dy++) {
+      for (let dx = -1; dx <= def.size.w; dx++) {
+        if (dx >= 0 && dx < def.size.w && dy >= 0 && dy < def.size.h) continue // 跳过建筑自身格子
+        const nx = col + dx, ny = row + dy
+        if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) continue
+        const nidx = ny * COLS + nx
+        const nterrain = state.terrain[nidx]
+        if (nterrain === 0 || nterrain === 1) { hasWaterNeighbor = true; break }
+      }
+      if (hasWaterNeighbor) break
+    }
+    if (!hasWaterNeighbor) return false
   }
   for (const b of state.buildings.values()) {
     if (col < b.tileX + b.size.w && col + def.size.w > b.tileX && row < b.tileY + b.size.h && row + def.size.h > b.tileY) return false

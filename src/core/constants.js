@@ -88,6 +88,7 @@ export const UNIT_TYPE = {
   KNIGHT: 'knight',
   HALBERDIER: 'halberdier',
   IRON_GUARD: 'iron_guard',
+  WARSHIP: 'warship',
 }
 
 // ========== 单位显示尺寸 (相对 TILE_SIZE 的比例) ==========
@@ -100,6 +101,7 @@ export const UNIT_DISPLAY_SIZE = {
   knight:        { w: 0.8,  h: 0.8 },
   halberdier:    { w: 0.25, h: 0.4 },
   iron_guard:    { w: 0.25, h: 0.4 },
+  warship:       { w: 0.6,  h: 1 },
 }
 
 // ========== 建筑类型 ==========
@@ -117,6 +119,7 @@ export const BUILDING_TYPE = {
   TOWER: 'tower',
   WALL: 'wall',
   CITY_WALL: 'city_wall',
+  SHIPYARD: 'shipyard',
 }
 
 // ========== 团队 ==========
@@ -268,6 +271,20 @@ export const UNIT_DEFS = {
     gatherer: false,
     population: 1,
   },
+  [UNIT_TYPE.WARSHIP]: {
+    name: '战船',
+    image: 'warship',
+    maxHp: 150,
+    attack: 15,
+    armor: 3,
+    range: 4,
+    moveSpeed: 0.4,
+    attackSpeed: 1.2,
+    cost: { food: 0, wood: 150, gold: 100, stone: 0 },
+    trainTime: 35,
+    gatherer: false,
+    population: 2,
+  },
 }
 
 // ========== 建筑定义 ==========
@@ -385,6 +402,15 @@ export const BUILDING_DEFS = {
     cost: { food: 0, wood: 150, gold: 50, stone: 0 },
     buildTime: 35,
     trainableUnits: [UNIT_TYPE.HALBERDIER, UNIT_TYPE.IRON_GUARD],
+  },
+  [BUILDING_TYPE.SHIPYARD]: {
+    name: '船坞',
+    image: 'shipyard',
+    size: { w: 1, h: 1 },
+    maxHp: 300,
+    cost: { food: 0, wood: 200, gold: 100, stone: 0 },
+    buildTime: 40,
+    trainableUnits: [UNIT_TYPE.WARSHIP],
   },
 }
 

@@ -662,12 +662,17 @@ export function isTileWalkable(x, y, excludeBuildingId) {
  * @param {number} [excludeResourceIdx] - 排除的资源索引（如采集目标，允许走近它）
  * @returns {function(number, number): boolean}
  */
-export function createWalkableCheck(state, excludeBuildingId, excludeResourceIdx) {
+export function createWalkableCheck(state, excludeBuildingId, excludeResourceIdx, isShip = false) {
   return (x, y) => {
-    // 检查地形（深水/浅水不可通行）
     const idx = tileIdx(x, y)
     const terrain = state.terrain[idx]
-    if (terrain === TERRAIN.DEEP_WATER || terrain === TERRAIN.SHALLOW_WATER) return false
+    if (!isShip) {
+      // 陆地单位：深水/浅水不可通行
+      if (terrain === TERRAIN.DEEP_WATER || terrain === TERRAIN.SHALLOW_WATER) return false
+    } else {
+      // 战船：只能在深水/浅水通行
+      if (terrain !== TERRAIN.DEEP_WATER && terrain !== TERRAIN.SHALLOW_WATER) return false
+    }
     // 检查建筑障碍
     for (const b of state.buildings.values()) {
       if (b.id === excludeBuildingId) continue
